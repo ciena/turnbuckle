@@ -1,0 +1,24 @@
+# permissions for end users to edit constraintpolicyoffers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: constraintpolicyoffer-editor-role
+rules:
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicyoffers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicyoffers/status
+  verbs:
+  - get

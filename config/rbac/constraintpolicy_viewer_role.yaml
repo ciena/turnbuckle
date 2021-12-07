@@ -1,0 +1,20 @@
+# permissions for end users to view constraintpolicies.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: constraintpolicy-viewer-role
+rules:
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicies/status
+  verbs:
+  - get

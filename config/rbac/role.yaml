@@ -1,0 +1,86 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicybindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicybindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicybindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicyoffers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicyoffers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - constraint.ciena.com
+  resources:
+  - constraintpolicyoffers/status
+  verbs:
+  - get
+  - patch
+  - update

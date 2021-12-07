@@ -1,0 +1,36 @@
+componentConfig: true
+domain: ciena.com
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+projectName: turnbuckle
+repo: github.com/ciena/turnbuckle
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ciena.com
+  group: constraint
+  kind: ConstraintPolicy
+  path: github.com/ciena/turnbuckle/apis/constraint/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ciena.com
+  group: constraint
+  kind: ConstraintPolicyOffer
+  path: github.com/ciena/turnbuckle/apis/constraint/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ciena.com
+  group: constraint
+  kind: ConstraintPolicyBinding
+  path: github.com/ciena/turnbuckle/apis/constraint/v1alpha1
+  version: v1alpha1
+version: "3"

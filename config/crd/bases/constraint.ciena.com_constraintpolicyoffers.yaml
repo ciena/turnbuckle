@@ -1,0 +1,214 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: constraintpolicyoffers.constraint.ciena.com
+spec:
+  group: constraint.ciena.com
+  names:
+    kind: ConstraintPolicyOffer
+    listKind: ConstraintPolicyOfferList
+    plural: constraintpolicyoffers
+    shortNames:
+    - cpo
+    singular: constraintpolicyoffer
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.policies
+      name: Policies
+      priority: 1
+      type: string
+    - jsonPath: .spec.period
+      name: Period
+      priority: 1
+      type: string
+    - jsonPath: .spec.grace
+      name: Grace
+      type: string
+    - jsonPath: .spec.violationPolicy
+      name: ViolationPolicy
+      priority: 1
+      type: string
+    - jsonPath: .status.bindingCount
+      name: Count
+      type: integer
+    - jsonPath: .status.compliantBindingCount
+      name: Compliant
+      type: integer
+    - jsonPath: .status.bindingSelector
+      name: Selector
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ConstraintPolicyOffer is the Schema for the constraintpolicyoffers
+          API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer
+            properties:
+              grace:
+                description: Garce defines how long a policy must be out of range
+                  before the policy is considered in violation.
+                pattern: ^([0-9]+\.)?[0-9]+(h|m|s|us|µs|ms|ns)+$
+                type: string
+              period:
+                description: Period defines how often the policies included in the
+                  offer should be evaluated.
+                pattern: ^([0-9]+\.)?[0-9]+(h|m|s|us|µs|ms|ns)+$
+                type: string
+              policies:
+                description: Policies list of policies included in the offer.
+                items:
+                  description: Policy used to type a policy name so that if can be
+                    validated with a pattern.
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+                type: array
+              targets:
+                description: Targets list of targets to be included in the offer.
+                items:
+                  description: ConstraintPolicyOfferTarget identifies a target of
+                    a policy offer.
+                  properties:
+                    apiVersion:
+                      description: ApiVersion used to help identify the Kubernetes
+                        resource type to select.
+                      type: string
+                    kind:
+                      description: Kind use to help identify the Kubernetes resource
+                        type to select.
+                      enum:
+                      - Pod
+                      - Cluster
+                      - Endpoint
+                      - NetworkService
+                      type: string
+                    labelSelector:
+                      description: LabelSelector is used to select the Kubernetes
+                        resources to include as part of the target.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                    mode:
+                      description: Mode hint used when selecting more abstract concepts
+                        such as a network chain to help identify which element of
+                        the abstract should be used for reference.
+                      enum:
+                      - Start
+                      - End
+                      type: string
+                    name:
+                      description: Name defines the optional name for the target specification/
+                      type: string
+                  required:
+                  - kind
+                  type: object
+                type: array
+              violationPolicy:
+                description: ViolationPolicy defines the action that should be taken
+                  when a policy is in violation.
+                enum:
+                - Ignore
+                - Mediate
+                - Evict
+                type: string
+            required:
+            - grace
+            - period
+            - policies
+            - targets
+            - violationPolicy
+            type: object
+          status:
+            description: ConstraintPolicyOfferStatus defines the observed state of
+              ConstraintPolicyOffer
+            properties:
+              bindingCount:
+                description: BindingCount summary of how many bindings were created
+                  from this offer.
+                type: integer
+              bindingSelector:
+                description: BindingSelector label used to locate (reference) the
+                  bindings created by this offer.
+                type: string
+              compliantBindingCount:
+                description: CompliantBindingCount summary of how many of the bindings
+                  are currently compliant.
+                type: integer
+            required:
+            - bindingCount
+            - bindingSelector
+            - compliantBindingCount
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

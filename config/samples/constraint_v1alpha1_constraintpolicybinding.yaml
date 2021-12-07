@@ -1,0 +1,6 @@
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicyBinding
+metadata:
+  name: constraintpolicybinding-sample
+spec:
+  # TODO(user): Add fields here
