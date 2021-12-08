@@ -1,6 +1,25 @@
+# Copyright 2021 Ciena Corporation.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Capture version informaton from version file
+VERSION=$(shell head -1 ./VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+DOCKER_REGISTRY ?= dockerhub.com
+DOCKER_TAG ?= $(VERSION)
+DOCKER_MANAGER_REPOSITORY ?= constraint-policy-manager
+MANAGER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
 
@@ -16,6 +35,50 @@ endif
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+# Setting up the version information for the build
+GO_VERSION=$(shell go version 2>/dev/null | cut -d\  -f 3)
+GO_ARCH=$(shell go env GOHOSTARCH)
+GO_OS=$(shell go env GOHOSTOS)
+BUILD_DATE=$(shell date -u "+%Y-%m-%dT%H:%M:%S%Z")
+VCS_REF=$(shell git rev-parse HEAD)
+ifeq ($(shell git ls-files --others --modified --deleted --exclude-standard | wc -l | tr -d ' '),0)
+VCS_DIRTY=false
+else
+VCS_DIRTY=true
+endif
+ifeq ($(shell uname -s | tr '[:upper:]' '[:lower:]'),darwin)
+VCS_COMMIT_DATE=$(shell date -j -u -f "%Y-%m-%d %H:%M:%S %z" "$(shell git show -s --format=%ci HEAD)" "+%Y-%m-%dT%H:%M:%S%Z")
+else
+VCS_COMMIT_DATE=$(shell date -u -d "$(shell git show -s --format=%ci HEAD)" "+%Y-%m-%dT%H:%M:%S%Z")
+endif
+GIT_TRACKING=$(shell git status -b --porcelain=2 | grep branch\.upstream | awk '{print $$3}' | cut -d/ -f1)
+ifeq ($(GIT_TRACKING),)
+GIT_TRACKING=origin
+endif
+# Remove any auth information from URL
+VCS_URL=$(shell git remote get-url $(GIT_TRACKING) | sed -e 's/\/\/[-_:@a-zA-Z0-9]*[:@]/\/\//g')
+
+VERSION_LDFLAGS=\
+-X github.com/ciena/turnbuckle/controllers/constraint.version="$(VERSION)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.vcsURL="$(VCS_URL)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.vcsRef="$(VCS_REF)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.vcsCommitDate="$(VCS_COMMIT_DATE)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.vcsDirty="$(VCS_DIRTY)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.goVersion="$(GO_VERSION)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.os="$(GO_OS)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.arch="$(GO_ARCH)" \
+-X github.com/ciena/turnbuckle/controllers/constraint.buildDate="$(BUILD_DATE)"
+
+DOCKER_BUILD_ARGS=\
+--build-arg org_label_schema_version="$(VERSION)" \
+--build-arg org_label_schema_vcs_url="$(VCS_URL)" \
+--build-arg org_label_schema_vcs_ref="$(VCS_REF)" \
+--build-arg org_label_schema_vcs_commit_date="$(VCS_COMMIT_DATE)" \
+--build-arg org_label_schema_vcs_dirty="$(VCS_DIRTY)" \
+--build-arg org_label_schema_build_date="$(BUILD_DATE)"
+
+LDFLAGS=-ldflags "$(VERSION_LDFLAGS)"
 
 .DEFAULT_GOAL:=help
 
@@ -65,19 +128,23 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+	go build -o bin/manager $(LDFLAGS) ./cmd/manager
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run $(LDFLAGS) ./cmd/manager
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build $(DOCKER_BUILD_FLAGS) -t ${MANAGER_IMG} -f build/Dockerfile.manager $(DOCKER_BUILD_ARGS) .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push ${MANAGER_IMG}
+
+.PHONY: clean
+clean: ## Delete build and/or temporary artifacts
+	rm -rf ./bin *.out
 
 ##@ Deployment
 
@@ -95,7 +162,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${MANAGER_IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
