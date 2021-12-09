@@ -18,8 +18,8 @@ metadata:
 spec:
   rules:
     - name: cpu-count
-      request: 4
-      limit: 2
+      request: "4"
+      limit: "2"
     - name: memory
       request: 8G
       limit: 2G

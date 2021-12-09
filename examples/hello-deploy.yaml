@@ -20,7 +20,7 @@ metadata:
   labels:
     app: hello-server
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: hello-server
@@ -29,18 +29,7 @@ spec:
       labels:
         app: hello-server
     spec:
-      schedulerName: connect-policy-scheduler
-# Affinity not yet supported by connect-policy-scheduler
-#      affinity:
-#        podAntiAffinity:
-#          requiredDuringSchedulingIgnoredDuringExecution:
-#            - labelSelector:
-#                matchExpressions:
-#                  - key: app
-#                    operator: In
-#                    values:
-#                      - hello-client
-#              topologyKey: kubernetes.io/hostname
+#     schedulerName: connect-policy-scheduler
       containers:
         - name: server
           image: ciena/grpc-hello-server:0.1.0
@@ -56,7 +45,7 @@ metadata:
   labels:
     app: hello-client
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: hello-client
@@ -65,20 +54,36 @@ spec:
       labels:
         app: hello-client
     spec:
-      schedulerName: connect-policy-scheduler
-# Affinity not yet supported by connect-policy-scheduler
-#      affinity:
-#        podAntiAffinity:
-#          requiredDuringSchedulingIgnoredDuringExecution:
-#            - labelSelector:
-#                matchExpressions:
-#                  - key: app
-#                    operator: In
-#                    values:
-#                      - hello-client
-#              topologyKey: kubernetes.io/hostname
+#     schedulerName: connect-policy-scheduler
       containers:
         - name: client
+          image: ciena/grpc-hello-client:0.1.0
+          imagePullPolicy: Always
+          args:
+            - "--addr=hello-server.default.svc.cluster.local:8080"
+            - "--interval=3s"
+            - "--timeout=10s"
+      terminationGracePeriodSeconds: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-monitor
+  labels:
+    app: hello-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-monitor
+  template:
+    metadata:
+      labels:
+        app: hello-monitor
+    spec:
+#     schedulerName: connect-policy-scheduler
+      containers:
+        - name: monitor
           image: ciena/grpc-hello-client:0.1.0
           imagePullPolicy: Always
           args:

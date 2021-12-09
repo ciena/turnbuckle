@@ -108,10 +108,10 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	// Create a visted map so we can track which bindings continue
 	// to be neededgand which can be deleted.
 	visits := make(map[string]*visitState)
-	for _, binding := range bindings.Items {
+	for i, binding := range bindings.Items {
 		visits[binding.Name] = &visitState{
 			Visited: false,
-			Binding: &binding,
+			Binding: &bindings.Items[i],
 		}
 	}
 
@@ -122,6 +122,12 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		if targetName == "" {
 			targetName = "default"
 		}
+		// Add the empty target reference. This is important so that
+		// when calculating permutations we know if we have have an empty
+		// target list, because an empty target list means that there
+		// are no permutations.
+		refs[targetName] = types.References{}
+
 		set, err := metav1.LabelSelectorAsMap(target.LabelSelector)
 		if err != nil {
 			logger.V(0).Error(err, "selector-parse-error", "namespace", req.NamespacedName.Namespace,
@@ -142,8 +148,10 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			}
 		}
 		for _, item := range found.Items {
-			refs[targetName] = append(refs[targetName],
-				types.NewReferenceFromUnstructured(item))
+			ref := types.NewReferenceFromUnstructured(item)
+			if !refs[targetName].Contains(ref) {
+				refs[targetName] = append(refs[targetName], ref)
+			}
 		}
 	}
 
@@ -197,7 +205,9 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			continue
 		}
 		if err := r.Client.Delete(context.TODO(), visit.Binding); err != nil {
-			logger.V(0).Error(err, "delete-binding", "name", name)
+			if !isNotFoundOrGone(err) {
+				logger.V(0).Error(err, "delete-binding", "name", name)
+			}
 		}
 	}
 

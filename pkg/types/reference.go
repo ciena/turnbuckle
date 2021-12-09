@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -44,7 +43,19 @@ type ReferencesList []References
 
 func (r References) AsBindingName(offerName string) string {
 	hash := fnv.New32a()
+	for _, ref := range r {
+		hash.Write([]byte(ref.String()))
+	}
 	return offerName + "-" + rand.SafeEncodeString(fmt.Sprint(hash.Sum32()))
+}
+
+func (r References) Contains(ref *Reference) bool {
+	for _, have := range r {
+		if *have == *ref {
+			return true
+		}
+	}
+	return false
 }
 
 func (m ReferencesMap) Permutations() ReferencesList {
@@ -61,6 +72,13 @@ func (m ReferencesMap) Permutations() ReferencesList {
 		}
 
 		return false
+	}
+
+	// if any of the map entries are empty then we have no permutations
+	for _, v := range m {
+		if len(v) == 0 {
+			return ReferencesList{}
+		}
 	}
 
 	// Sort the keys in the map so we have consistent binding naming
@@ -130,7 +148,6 @@ func ParseReference(in string) (*Reference, error) {
 	var t Reference
 
 	parts := referenceRE.FindStringSubmatch(in)
-	fmt.Fprintf(os.Stdout, "PARTS: %v", parts)
 	if len(parts) == 0 {
 		return nil, ErrParseReference
 	}
@@ -162,6 +179,5 @@ func NewReferenceFromUnstructured(in uv1.Unstructured) *Reference {
 			out.Name = val
 		}
 	}
-	fmt.Fprintf(os.Stdout, "%s\n", out)
 	return &out
 }

@@ -27,13 +27,13 @@ type ConstraintPolicyBindingSpec struct {
 	// a cluster/namespace/name form.
 	//+kubernetes:validate:Required
 	//+kubebuilder:validation:Pattern:=`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`
-	Source string `json:"source"`
+	//Source string `json:"source"`
 
 	// Destination represents a termination point of the binding in a
 	// cluster/namespace/name form.
 	//+kubernetes:validate:Required
 	//+kubebuilder:validation:Pattern:=`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`
-	Destination string `json:"destination"`
+	//Destination string `json:"destination"`
 
 	// Offer references the offer from which this binding is created in a
 	// cluster/namespace/mame form.
