@@ -1,0 +1,113 @@
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicy
+metadata:
+  name: complex
+  namespace: default
+spec:
+  rules:
+    - name: space
+      request: 4G
+      limit: 2G
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicy
+metadata:
+  name: large
+  namespace: default
+spec:
+  rules:
+    - name: cpu-count
+      request: "4"
+      limit: "2"
+    - name: memory
+      request: 8G
+      limit: 2G
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicy
+metadata:
+  name: gold-policy
+  namespace: default
+spec:
+  rules:
+    - name: latency
+      request: 200us
+      limit: 500us
+    - name: jitter
+      request: 10ms
+      limit: 15ms
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicyOffer
+metadata:
+  name: gold-offer
+  namespace: default
+spec:
+  targets:
+    - name: source
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-client
+    - name: destination
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-server
+  policies:
+    - gold-policy
+  violationPolicy: Evict
+  period: 5s
+  grace: 1m
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicyOffer
+metadata:
+  name: large-offer
+  namespace: default
+spec:
+  targets:
+    - apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-server
+  policies:
+    - large
+  violationPolicy: Evict
+  period: 5s
+  grace: 1m
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicyOffer
+metadata:
+  name: complex-offer
+  namespace: default
+spec:
+  targets:
+    - name: one
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-client
+    - name: two
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-server
+    - name: three
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-monitor
+  policies:
+    - complex
+  violationPolicy: Evict
+  period: 5s
+  grace: 1m

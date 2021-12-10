@@ -64,25 +64,13 @@ spec:
             description: ConstraintPolicyBindingSpec defines the desired state of
               ConstraintPolicyBinding
             properties:
-              destination:
-                description: Destination represents a termination point of the binding
-                  in a cluster/namespace/name form.
-                pattern: ^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$
-                type: string
               offer:
                 description: Offer references the offer from which this binding is
                   created in a cluster/namespace/mame form.
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
-              source:
-                description: Source represents a termination point of the binding
-                  in a cluster/namespace/name form.
-                pattern: ^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$
-                type: string
             required:
-            - destination
             - offer
-            - source
             type: object
           status:
             description: ConstraintPolicyBindingStatus defines the observed state
