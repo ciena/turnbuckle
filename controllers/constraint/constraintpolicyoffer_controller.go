@@ -115,7 +115,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	refs := make(types.ReferencesMap)
+	refs := make(types.ReferenceListMap)
 
 	for _, target := range offer.Spec.Targets {
 		targetName := target.Name
@@ -126,7 +126,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		// when calculating permutations we know if we have have an empty
 		// target list, because an empty target list means that there
 		// are no permutations.
-		refs[targetName] = types.References{}
+		refs[targetName] = types.ReferenceList{}
 
 		set, err := metav1.LabelSelectorAsMap(target.LabelSelector)
 		if err != nil {

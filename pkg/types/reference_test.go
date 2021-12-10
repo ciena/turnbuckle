@@ -17,6 +17,7 @@ imitations under the License.
 package types
 
 import (
+	"fmt"
 	"testing"
 
 	uv1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -119,7 +120,7 @@ func TestParseReference(t *testing.T) {
 		if err != nil || test.err != nil {
 			continue
 		}
-		if *val != test.out {
+		if val != test.out {
 			t.Errorf("%s(%s):\ngot  %v,\nwant %v", test.d, test.in, val, test.out)
 			continue
 		}
@@ -197,6 +198,196 @@ func TestReferenceFromUnstructured(t *testing.T) {
 		ref := NewReferenceFromUnstructured(test.in)
 		if ref.String() != test.out {
 			t.Errorf("%s:\ngot  %s\nwant %s\n", test.d, ref, test.out)
+		}
+	}
+}
+
+func TestAsBindingName(t *testing.T) {
+	var tests = []struct {
+		d     string
+		offer string
+		in    []string
+		out   string
+	}{
+		{
+			"empty reference list",
+			"offer",
+			[]string{},
+			"offer-65bb57b6b5",
+		},
+		{
+			"simple",
+			"offer",
+			[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+			"offer-6567d96b5f",
+		},
+		{
+			"simple, reveresed",
+			"offer",
+			[]string{":ns:v1:Pod:two", ":ns:v1:Pod:one"},
+			"offer-7c648b467",
+		},
+	}
+	for _, test := range tests {
+		rl := ReferenceList{}
+		for _, v := range test.in {
+			r, err := ParseReference(v)
+			if err != nil {
+				t.Errorf("converting reference: %s", err.Error())
+			}
+			rl = append(rl, r)
+		}
+		val := rl.AsBindingName(test.offer)
+		if val != test.out {
+			t.Errorf("%s:\ngot  %s\nwant %s\n", test.d, val, test.out)
+		}
+	}
+}
+
+func TestReferenceListContains(t *testing.T) {
+	var tests = []struct {
+		d      string
+		list   []string
+		target string
+		out    bool
+	}{
+		{
+			"empty reference list",
+			[]string{},
+			":ns:v1:Pod:one",
+			false,
+		},
+		{
+			"non-empty list, exists in list",
+			[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+			":ns:v1:Pod:one",
+			true,
+		},
+		{
+			"non-empty list, does not exist in list",
+			[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+			":ns:v1:Pod:three",
+			false,
+		},
+	}
+	for _, test := range tests {
+		rl := ReferenceList{}
+		for _, v := range test.list {
+			r, err := ParseReference(v)
+			if err != nil {
+				t.Errorf("converting reference: %s", err.Error())
+			}
+			rl = append(rl, r)
+		}
+		ref, err := ParseReference(test.target)
+		if err != nil {
+			t.Errorf("converting target: %s", err.Error())
+		}
+		val := rl.Contains(ref)
+		if val != test.out {
+			t.Errorf("%s:\ngot  %t\nwant %t\n", test.d, val, test.out)
+		}
+	}
+}
+
+func TestPermutations(t *testing.T) {
+	var tests = []struct {
+		d       string
+		listmap map[string][]string
+		out     [][]string
+	}{
+		{
+			"empty map of lists",
+			map[string][]string{},
+			[][]string{},
+		},
+		{
+			"map with one empty lists",
+			map[string][]string{
+				"one": []string{":ns:v1:Pod:one"},
+				"two": []string{},
+			},
+			[][]string{},
+		},
+		{
+			"two sets, one item each, in order",
+			map[string][]string{
+				"one": []string{":ns:v1:Pod:one"},
+				"two": []string{":ns:v1:Pod:two"},
+			},
+			[][]string{
+				[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+			},
+		},
+		{
+			"two sets, one item each, reverse order",
+			map[string][]string{
+				"two": []string{":ns:v1:Pod:two"},
+				"one": []string{":ns:v1:Pod:one"},
+			},
+			[][]string{
+				[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+			},
+		},
+		{
+			"count to 16",
+			map[string][]string{
+				"a": []string{
+					":ns:v1:Pod:a-0",
+					":ns:v1:Pod:a-1",
+				},
+				"b": []string{
+					":ns:v1:Pod:b-0",
+					":ns:v1:Pod:b-1",
+				},
+				"c": []string{
+					":ns:v1:Pod:c-0",
+					":ns:v1:Pod:c-1",
+				},
+				"d": []string{
+					":ns:v1:Pod:d-0",
+					":ns:v1:Pod:d-1",
+				},
+			},
+			[][]string{
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+			},
+		},
+	}
+	for _, test := range tests {
+		rm := ReferenceListMap{}
+		for k, v := range test.listmap {
+			rl := ReferenceList{}
+			for _, s := range v {
+				r, err := ParseReference(s)
+				if err != nil {
+					t.Errorf("converting reference: %s", err.Error())
+				}
+				rl = append(rl, r)
+			}
+			rm[k] = rl
+		}
+
+		ps := rm.Permutations()
+		if len(test.out) != len(ps) {
+			fmt.Printf("%+#v\n", ps)
+			t.Errorf("'%s': unequal permutation count: %d v. %d\n",
+				test.d, len(test.out), len(ps))
 		}
 	}
 }

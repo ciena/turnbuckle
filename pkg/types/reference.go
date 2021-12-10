@@ -37,11 +37,17 @@ type Reference struct {
 	Name       string `json:"name,omitempty"`
 }
 
-type References []*Reference
-type ReferencesMap map[string]References
-type ReferencesList []References
+// ReferenceList defines a slice of References
+type ReferenceList []Reference
 
-func (r References) AsBindingName(offerName string) string {
+// ReferenceListMap defines a map from a string (target name)
+// to a ReferenceList.
+type ReferenceListMap map[string]ReferenceList
+
+// AsBindingName creates a name that can be used for a policy binding
+// based on the given offer compined with the Reference instances in the
+// list.
+func (r ReferenceList) AsBindingName(offerName string) string {
 	hash := fnv.New32a()
 	for _, ref := range r {
 		hash.Write([]byte(ref.String()))
@@ -49,19 +55,27 @@ func (r References) AsBindingName(offerName string) string {
 	return offerName + "-" + rand.SafeEncodeString(fmt.Sprint(hash.Sum32()))
 }
 
-func (r References) Contains(ref *Reference) bool {
+// Contains returns true if the given reference is in the ReferenceList
+// else false.
+func (r ReferenceList) Contains(ref Reference) bool {
 	for _, have := range r {
-		if *have == *ref {
+		if have == ref {
 			return true
 		}
 	}
 	return false
 }
 
-func (m ReferencesMap) Permutations() ReferencesList {
+// Permutations generates all the permutations of the ReferenceListMap where
+// the map key name represents a set. The generated permutations contain an
+// entry from each set and are added to permutation in alphabetical order base
+// on the map key that represents that set.
+func (m ReferenceListMap) Permutations() []ReferenceList {
 
-	var inc func(list ReferencesList, refIdxs []int, refIdx int) bool
-	inc = func(list ReferencesList, refIdxs []int, refIdx int) bool {
+	// Define a closer (nested function) that is used to increment
+	// the counters that represent the iterators through the permutations
+	var inc func(list []ReferenceList, refIdxs []int, refIdx int) bool
+	inc = func(list []ReferenceList, refIdxs []int, refIdx int) bool {
 		if refIdx < 0 {
 			return true
 		}
@@ -75,9 +89,12 @@ func (m ReferencesMap) Permutations() ReferencesList {
 	}
 
 	// if any of the map entries are empty then we have no permutations
+	if len(m) == 0 {
+		return []ReferenceList{}
+	}
 	for _, v := range m {
 		if len(v) == 0 {
-			return ReferencesList{}
+			return []ReferenceList{}
 		}
 	}
 
@@ -92,21 +109,26 @@ func (m ReferencesMap) Permutations() ReferencesList {
 	})
 
 	// In key order add each references object to an internal referenes list
-	var list ReferencesList
+	var list []ReferenceList
 	for _, key := range keys {
 		list = append(list, m[key])
 	}
 
 	// Generate permutation slice.
-	var permutations ReferencesList
+	var permutations []ReferenceList
 	var refIdxs = make([]int, len(m))
 	for {
-		var permutation References
+
+		// create a permutation from the current index values and
+		// append it to the list
+		var permutation ReferenceList
 		for i := 0; i < len(list); i++ {
 			permutation = append(permutation, list[i][refIdxs[i]])
 		}
 		permutations = append(permutations, permutation)
 
+		// incremet the index counters and stop if we have
+		// reached the end
 		if inc(list, refIdxs, len(refIdxs)-1) {
 			break
 		}
@@ -144,12 +166,12 @@ var ErrConvertReference = errors.New("convert-unstructured-to-reference")
 
 // ParseReference attempts to parse the given string as a Reference and returns
 // the value or an error if it cannot be parsed as a Reference.
-func ParseReference(in string) (*Reference, error) {
+func ParseReference(in string) (Reference, error) {
 	var t Reference
 
 	parts := referenceRE.FindStringSubmatch(in)
 	if len(parts) == 0 {
-		return nil, ErrParseReference
+		return Reference{}, ErrParseReference
 	}
 
 	t.Cluster = parts[3]
@@ -158,12 +180,12 @@ func ParseReference(in string) (*Reference, error) {
 	t.Kind = parts[6]
 	t.Name = parts[7]
 
-	return &t, nil
+	return t, nil
 }
 
 // NewReferenceFromUnstructured creates and returns a new Reference instance
 // from the given unstructured resource information.
-func NewReferenceFromUnstructured(in uv1.Unstructured) *Reference {
+func NewReferenceFromUnstructured(in uv1.Unstructured) Reference {
 	out := Reference{}
 	if val, ok := in.Object["apiVersion"]; ok {
 		out.APIVersion = val.(string)
@@ -179,5 +201,5 @@ func NewReferenceFromUnstructured(in uv1.Unstructured) *Reference {
 			out.Name = val
 		}
 	}
-	return &out
+	return out
 }
