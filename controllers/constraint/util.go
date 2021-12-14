@@ -17,12 +17,22 @@ limitations under the License.
 package constraint
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
+	"errors"
+
+	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	lkName      = "name"
+	lkNamespace = "namespace"
+	apiError    = "api-error"
+)
+
 func isNotFoundOrGone(err error) bool {
-	statusError, ok := err.(*errors.StatusError)
+	var statusError *kerr.StatusError
+
+	ok := errors.As(err, &statusError)
 	if !ok {
 		return false
 	}
@@ -32,13 +42,25 @@ func isNotFoundOrGone(err error) bool {
 }
 
 func areStringSlicesEqual(a, b []string) bool {
+	// if both are nil then consider them equal
+	if a == nil && b == nil {
+		return true
+	}
+
+	// if one or the other is nil, then no equal
+	if a == nil || b == nil {
+		return false
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
+
 	for i, v := range a {
 		if v != b[i] {
 			return false
 		}
 	}
+
 	return true
 }

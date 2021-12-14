@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ConstraintPolicyRule defines a single constraint policy rule
+// ConstraintPolicyRule defines a single constraint policy rule.
 type ConstraintPolicyRule struct {
 	//+kubebuilder:validation:Required
 	Name string `json:"name"`
@@ -34,25 +34,26 @@ type ConstraintPolicyRule struct {
 
 // ConstraintPolicyTable defines a array of policy rules used
 // to manage the results of rule evalautions as part of the
-// policy binding status
+// policy binding status.
 type ConstraintPolicyTable struct {
 	Rules []string `json:"rules"`
 }
 
 // ConstraintPolicyStatus defines a array of policy rules used
 // to manage the results of rule evalautions as part of the
-// policy binding status
+// policy binding status.
 type ConstraintPolicyStatus struct {
 	Table ConstraintPolicyTable `json:"table"`
 }
 
-// ConstraintPolicySpec defines the desired state of ConstraintPolicy
+// ConstraintPolicySpec defines the desired state of ConstraintPolicy.
 type ConstraintPolicySpec struct {
 	//+kubebuilder:validation:MinItems=1
 	//+kubebuilder:validation:Required
-	Rules []ConstraintPolicyRule `json:"rules"`
+	Rules []*ConstraintPolicyRule `json:"rules"`
 }
 
+// nolint:lll
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:servedversion
@@ -60,9 +61,10 @@ type ConstraintPolicySpec struct {
 //+kubebuilder:printcolumn:name="Rules",type="string",JSONPath=".status.table.rules",priority=1
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age of constraint policy"
 
-// ConstraintPolicy is the Schema for the constraintpolicies API
+// ConstraintPolicy is the Schema for the constraintpolicies API.
 type ConstraintPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   ConstraintPolicySpec   `json:"spec,omitempty"`
@@ -71,13 +73,15 @@ type ConstraintPolicy struct {
 
 //+kubebuilder:object:root=true
 
-// ConstraintPolicyList contains a list of ConstraintPolicy
+// ConstraintPolicyList contains a list of ConstraintPolicy.
 type ConstraintPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ConstraintPolicy `json:"items"`
 }
 
+// nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&ConstraintPolicy{}, &ConstraintPolicyList{})
 }

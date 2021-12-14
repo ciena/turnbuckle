@@ -30,7 +30,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ConstraintPolicy is the Schema for the constraintpolicies API
+        description: ConstraintPolicy is the Schema for the constraintpolicies API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -45,12 +45,12 @@ spec:
           metadata:
             type: object
           spec:
-            description: ConstraintPolicySpec defines the desired state of ConstraintPolicy
+            description: ConstraintPolicySpec defines the desired state of ConstraintPolicy.
             properties:
               rules:
                 items:
                   description: ConstraintPolicyRule defines a single constraint policy
-                    rule
+                    rule.
                   properties:
                     limit:
                       type: string
@@ -71,12 +71,12 @@ spec:
           status:
             description: ConstraintPolicyStatus defines a array of policy rules used
               to manage the results of rule evalautions as part of the policy binding
-              status
+              status.
             properties:
               table:
                 description: ConstraintPolicyTable defines a array of policy rules
                   used to manage the results of rule evalautions as part of the policy
-                  binding status
+                  binding status.
                 properties:
                   rules:
                     items:

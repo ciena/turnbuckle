@@ -17,23 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/ciena/turnbuckle/pkg/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ConstraintPolicyBindingSpec defines the desired state of ConstraintPolicyBinding
+// ConstraintPolicyBindingSpec defines the desired state of ConstraintPolicyBinding.
 type ConstraintPolicyBindingSpec struct {
 
-	// Source represents a termination point of the binding in
-	// a cluster/namespace/name form.
+	// Targets the list of targets for the binding
 	//+kubernetes:validate:Required
-	//+kubebuilder:validation:Pattern:=`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`
-	//Source string `json:"source"`
-
-	// Destination represents a termination point of the binding in a
-	// cluster/namespace/name form.
-	//+kubernetes:validate:Required
-	//+kubebuilder:validation:Pattern:=`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`
-	//Destination string `json:"destination"`
+	Targets map[string]types.Reference `json:"targets"`
 
 	// Offer references the offer from which this binding is created in a
 	// cluster/namespace/mame form.
@@ -58,7 +51,7 @@ type ConstraintPolicyBindingStatusRuleDetail struct {
 	Reason string `json:"reason"`
 }
 
-// ConstraintPolicyBindingStatusDetail contains the summary complaince
+// ConstraintPolicyBindingStatusDetail contains the summary compliance
 // status of a binding as well as the detail from which it is summarized.
 type ConstraintPolicyBindingStatusDetail struct {
 	//+kubernetes:validate:Required
@@ -73,10 +66,10 @@ type ConstraintPolicyBindingStatusDetail struct {
 	//+nullable
 	Reason string `json:"reason"`
 
-	RuleDetails []ConstraintPolicyBindingStatusRuleDetail `json:"ruleDetails"`
+	RuleDetails []*ConstraintPolicyBindingStatusRuleDetail `json:"ruleDetails"`
 }
 
-// ConstraintPolicyBindingStatus defines the observed state of ConstraintPolicyBinding
+// ConstraintPolicyBindingStatus defines the observed state of ConstraintPolicyBinding.
 type ConstraintPolicyBindingStatus struct {
 
 	//+kubebuilder:validate:Required
@@ -87,7 +80,7 @@ type ConstraintPolicyBindingStatus struct {
 	FirstReason string `json:"firstReason"`
 
 	//+optional
-	Details []ConstraintPolicyBindingStatusDetail `json:"details"`
+	Details []*ConstraintPolicyBindingStatusDetail `json:"details"`
 
 	//+optional
 	//+nullable
@@ -109,10 +102,11 @@ type ConstraintPolicyBindingStatus struct {
 //+kubebuilder:printcolumn:name="LastMitigation",type="date",JSONPath=".status.lastMitigatedTimestamp",priority=1
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
 
-// ConstraintPolicyBinding is the Schema for the constraintpolicybindings API
-//+genclient
+// ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
+//+genclient.
 type ConstraintPolicyBinding struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	//+kubernetes:validation:Required
@@ -122,13 +116,15 @@ type ConstraintPolicyBinding struct {
 
 //+kubebuilder:object:root=true
 
-// ConstraintPolicyBindingList contains a list of ConstraintPolicyBinding
+// ConstraintPolicyBindingList contains a list of ConstraintPolicyBinding.
 type ConstraintPolicyBindingList struct {
 	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ConstraintPolicyBinding `json:"items"`
+	Items           []*ConstraintPolicyBinding `json:"items"`
 }
 
+// nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&ConstraintPolicyBinding{}, &ConstraintPolicyBindingList{})
 }

@@ -46,7 +46,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: ConstraintPolicyBinding is the Schema for the constraintpolicybindings
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -62,19 +62,56 @@ spec:
             type: object
           spec:
             description: ConstraintPolicyBindingSpec defines the desired state of
-              ConstraintPolicyBinding
+              ConstraintPolicyBinding.
             properties:
               offer:
                 description: Offer references the offer from which this binding is
                   created in a cluster/namespace/mame form.
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
+              targets:
+                additionalProperties:
+                  description: Reference defines a cluster specific reference to a
+                    resource.
+                  properties:
+                    apiVersion:
+                      description: APIVersion represents the resolved APIVersion of
+                        the reference
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_-]*$
+                      type: string
+                    cluster:
+                      description: Cluster represents the resolved reference to a
+                        cluster ID
+                      type: string
+                    kind:
+                      description: Kind represents the resolved Kind of the reference
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_-]*$
+                      type: string
+                    name:
+                      description: Name represents the resolved Name of the reference
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_-]*$
+                      type: string
+                    namespace:
+                      description: Namespace represents the resolved Namespace of
+                        the reference
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_-]*$
+                      type: string
+                  required:
+                  - apiVersion
+                  - cluster
+                  - kind
+                  - name
+                  - namespace
+                  type: object
+                description: Targets the list of targets for the binding
+                type: object
             required:
             - offer
+            - targets
             type: object
           status:
             description: ConstraintPolicyBindingStatus defines the observed state
-              of ConstraintPolicyBinding
+              of ConstraintPolicyBinding.
             properties:
               compliance:
                 enum:
@@ -87,7 +124,7 @@ spec:
               details:
                 items:
                   description: ConstraintPolicyBindingStatusDetail contains the summary
-                    complaince status of a binding as well as the detail from which
+                    compliance status of a binding as well as the detail from which
                     it is summarized.
                   properties:
                     compliance:

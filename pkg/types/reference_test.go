@@ -14,17 +14,20 @@ See the License for the specific language governing permissions and
 imitations under the License.
 */
 
-package types
+package types_test
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
+	. "github.com/ciena/turnbuckle/pkg/types"
 	uv1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestParseReference(t *testing.T) {
-	var tests = []struct {
+	t.Parallel()
+
+	tests := []struct {
 		d   string
 		in  string
 		out Reference
@@ -33,8 +36,10 @@ func TestParseReference(t *testing.T) {
 		{
 			"all parts - good test",
 			"cluster:namespace:api:Kind:name",
-			Reference{Cluster: "cluster", Namespace: "namespace", APIVersion: "api",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Cluster: "cluster", Namespace: "namespace", APIVersion: "api",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
@@ -46,15 +51,19 @@ func TestParseReference(t *testing.T) {
 		{
 			"slash in API version",
 			"cluster:namespace:api/version:Kind:name",
-			Reference{Cluster: "cluster", Namespace: "namespace", APIVersion: "api/version",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Cluster: "cluster", Namespace: "namespace", APIVersion: "api/version",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
 			"dots and slash in API version",
 			"cluster:namespace:my.co/v1:Kind:name",
-			Reference{Cluster: "cluster", Namespace: "namespace", APIVersion: "my.co/v1",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Cluster: "cluster", Namespace: "namespace", APIVersion: "my.co/v1",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
@@ -66,29 +75,37 @@ func TestParseReference(t *testing.T) {
 		{
 			"no cluster specified",
 			"ns:my.co/v1:Kind:name",
-			Reference{Namespace: "ns", APIVersion: "my.co/v1",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Namespace: "ns", APIVersion: "my.co/v1",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
 			"no cluster or namespace",
 			"my.co/v1:Kind:name",
-			Reference{APIVersion: "my.co/v1",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				APIVersion: "my.co/v1",
+				Kind:       "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
 			"empty cluster value",
 			":namespace:my.co/v1:Kind:name",
-			Reference{Cluster: "", Namespace: "namespace", APIVersion: "my.co/v1",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Cluster: "", Namespace: "namespace", APIVersion: "my.co/v1",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
 			"empty cluster and namespace values",
 			"::my.co/v1:Kind:name",
-			Reference{Cluster: "", Namespace: "", APIVersion: "my.co/v1",
-				Kind: "Kind", Name: "name"},
+			Reference{
+				Cluster: "", Namespace: "", APIVersion: "my.co/v1",
+				Kind: "Kind", Name: "name",
+			},
 			nil,
 		},
 		{
@@ -113,15 +130,19 @@ func TestParseReference(t *testing.T) {
 
 	for _, test := range tests {
 		val, err := ParseReference(test.in)
-		if err != test.err {
+		if !errors.Is(err, test.err) {
 			t.Errorf("%s(%s):\ngot  %v,\nwant %v", test.d, test.in, err, test.err)
+
 			continue
 		}
+
 		if err != nil || test.err != nil {
 			continue
 		}
-		if val != test.out {
-			t.Errorf("%s(%s):\ngot  %v,\nwant %v", test.d, test.in, val, test.out)
+
+		if *val != test.out {
+			t.Errorf("%s(%s):\ngot  %v\nwant %v", test.d, test.in, val, test.out)
+
 			continue
 		}
 	}
@@ -138,26 +159,33 @@ func toUnstructured(namespace, apiVersion, kind, name string) uv1.Unstructured {
 	if apiVersion != "" {
 		u.Object["apiVersion"] = apiVersion
 	}
+
 	if kind != "" {
 		u.Object["kind"] = kind
 	}
+
 	if len(namespace+name) == 0 {
 		return u
 	}
+
 	md := make(map[string]interface{})
 	if namespace != "" {
 		md["namespace"] = namespace
 	}
+
 	if name != "" {
 		md["name"] = name
 	}
+
 	u.Object["metadata"] = md
 
 	return u
 }
 
 func TestReferenceFromUnstructured(t *testing.T) {
-	var tests = []struct {
+	t.Parallel()
+
+	tests := []struct {
 		d   string
 		in  uv1.Unstructured
 		out string
@@ -203,7 +231,9 @@ func TestReferenceFromUnstructured(t *testing.T) {
 }
 
 func TestAsBindingName(t *testing.T) {
-	var tests = []struct {
+	t.Parallel()
+
+	tests := []struct {
 		d     string
 		offer string
 		in    []string
@@ -230,13 +260,16 @@ func TestAsBindingName(t *testing.T) {
 	}
 	for _, test := range tests {
 		rl := ReferenceList{}
+
 		for _, v := range test.in {
 			r, err := ParseReference(v)
 			if err != nil {
 				t.Errorf("converting reference: %s", err.Error())
 			}
+
 			rl = append(rl, r)
 		}
+
 		val := rl.AsBindingName(test.offer)
 		if val != test.out {
 			t.Errorf("%s:\ngot  %s\nwant %s\n", test.d, val, test.out)
@@ -245,7 +278,9 @@ func TestAsBindingName(t *testing.T) {
 }
 
 func TestReferenceListContains(t *testing.T) {
-	var tests = []struct {
+	t.Parallel()
+
+	tests := []struct {
 		d      string
 		list   []string
 		target string
@@ -272,17 +307,21 @@ func TestReferenceListContains(t *testing.T) {
 	}
 	for _, test := range tests {
 		rl := ReferenceList{}
+
 		for _, v := range test.list {
 			r, err := ParseReference(v)
 			if err != nil {
 				t.Errorf("converting reference: %s", err.Error())
 			}
+
 			rl = append(rl, r)
 		}
+
 		ref, err := ParseReference(test.target)
 		if err != nil {
 			t.Errorf("converting target: %s", err.Error())
 		}
+
 		val := rl.Contains(ref)
 		if val != test.out {
 			t.Errorf("%s:\ngot  %t\nwant %t\n", test.d, val, test.out)
@@ -291,7 +330,9 @@ func TestReferenceListContains(t *testing.T) {
 }
 
 func TestPermutations(t *testing.T) {
-	var tests = []struct {
+	t.Parallel()
+
+	tests := []struct {
 		d       string
 		listmap map[string][]string
 		out     [][]string
@@ -304,88 +345,91 @@ func TestPermutations(t *testing.T) {
 		{
 			"map with one empty lists",
 			map[string][]string{
-				"one": []string{":ns:v1:Pod:one"},
-				"two": []string{},
+				"one": {":ns:v1:Pod:one"},
+				"two": {},
 			},
 			[][]string{},
 		},
 		{
 			"two sets, one item each, in order",
 			map[string][]string{
-				"one": []string{":ns:v1:Pod:one"},
-				"two": []string{":ns:v1:Pod:two"},
+				"one": {":ns:v1:Pod:one"},
+				"two": {":ns:v1:Pod:two"},
 			},
 			[][]string{
-				[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+				{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
 			},
 		},
 		{
 			"two sets, one item each, reverse order",
 			map[string][]string{
-				"two": []string{":ns:v1:Pod:two"},
-				"one": []string{":ns:v1:Pod:one"},
+				"two": {":ns:v1:Pod:two"},
+				"one": {":ns:v1:Pod:one"},
 			},
 			[][]string{
-				[]string{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
+				{":ns:v1:Pod:one", ":ns:v1:Pod:two"},
 			},
 		},
 		{
 			"count to 16",
 			map[string][]string{
-				"a": []string{
+				"a": {
 					":ns:v1:Pod:a-0",
 					":ns:v1:Pod:a-1",
 				},
-				"b": []string{
+				"b": {
 					":ns:v1:Pod:b-0",
 					":ns:v1:Pod:b-1",
 				},
-				"c": []string{
+				"c": {
 					":ns:v1:Pod:c-0",
 					":ns:v1:Pod:c-1",
 				},
-				"d": []string{
+				"d": {
 					":ns:v1:Pod:d-0",
 					":ns:v1:Pod:d-1",
 				},
 			},
 			[][]string{
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
-				[]string{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-0", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-0", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-0", ":ns:v1:Pod:d-1"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-0"},
+				{":ns:v1:Pod:a-1", ":ns:v1:Pod:b-1", ":ns:v1:Pod:c-1", ":ns:v1:Pod:d-1"},
 			},
 		},
 	}
 	for _, test := range tests {
 		rm := ReferenceListMap{}
+
 		for k, v := range test.listmap {
 			rl := ReferenceList{}
+
 			for _, s := range v {
 				r, err := ParseReference(s)
 				if err != nil {
 					t.Errorf("converting reference: %s", err.Error())
 				}
+
 				rl = append(rl, r)
 			}
+
 			rm[k] = rl
 		}
 
-		ps := rm.Permutations()
+		_, ps := rm.Permutations()
 		if len(test.out) != len(ps) {
-			fmt.Printf("%+#v\n", ps)
 			t.Errorf("'%s': unequal permutation count: %d v. %d\n",
 				test.d, len(test.out), len(ps))
 		}

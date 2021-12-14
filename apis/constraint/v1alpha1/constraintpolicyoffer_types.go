@@ -55,12 +55,12 @@ type ConstraintPolicyOfferTarget struct {
 	LabelSelector *metav1.LabelSelector `json:"labelSelector"`
 }
 
-// ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer
+// ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer.
 type ConstraintPolicyOfferSpec struct {
 
 	// Targets list of targets to be included in the offer.
 	//+kubebuilder:validation:Required
-	Targets []ConstraintPolicyOfferTarget `json:"targets"`
+	Targets []*ConstraintPolicyOfferTarget `json:"targets"`
 
 	// Policies list of policies included in the offer.
 	//+kubebuilder:validation:Required
@@ -85,7 +85,7 @@ type ConstraintPolicyOfferSpec struct {
 	ViolationPolicy string `json:"violationPolicy"`
 }
 
-// ConstraintPolicyOfferStatus defines the observed state of ConstraintPolicyOffer
+// ConstraintPolicyOfferStatus defines the observed state of ConstraintPolicyOffer.
 type ConstraintPolicyOfferStatus struct {
 
 	// BindingCount summary of how many bindings were created from this offer.
@@ -113,9 +113,10 @@ type ConstraintPolicyOfferStatus struct {
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
 
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
-//+genclient
+//+genclient.
 type ConstraintPolicyOffer struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   ConstraintPolicyOfferSpec   `json:"spec,omitempty"`
@@ -124,13 +125,15 @@ type ConstraintPolicyOffer struct {
 
 //+kubebuilder:object:root=true
 
-// ConstraintPolicyOfferList contains a list of ConstraintPolicyOffer
+// ConstraintPolicyOfferList contains a list of ConstraintPolicyOffer.
 type ConstraintPolicyOfferList struct {
 	metav1.TypeMeta `json:",inline"`
+	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ConstraintPolicyOffer `json:"items"`
+	Items           []*ConstraintPolicyOffer `json:"items"`
 }
 
+// nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&ConstraintPolicyOffer{}, &ConstraintPolicyOfferList{})
 }

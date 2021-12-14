@@ -120,6 +120,10 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: lint
+lint: ## Run status code analysis against code.
+	golangci-lint run ./...
+
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
@@ -127,7 +131,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build manager binary.
+build: generate protos fmt vet ## Build manager binary.
 	go build -o bin/manager $(LDFLAGS) ./cmd/manager
 
 .PHONY: run
@@ -141,6 +145,19 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${MANAGER_IMG}
+
+ifeq (,$(shell which protoc 2>/dev/null))
+	$(error Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
+endif
+
+apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
+	protoc \
+		-I ./apis \
+		--go_out=plugins=grpc:. \
+		$<
+
+.PHONY: protos ## Generate Go code from the protocol buffer definitions
+protos: apis/ruleprovider/ruleprovider.pb.go
 
 .PHONY: clean
 clean: ## Delete build and/or temporary artifacts
