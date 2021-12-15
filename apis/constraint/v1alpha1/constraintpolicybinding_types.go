@@ -94,13 +94,13 @@ type ConstraintPolicyBindingStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName=cpb,scope=Namespaced,singular=constraintpolicybinding
-//+kubebuilder:printcolumn:name="Source",type="string",JSONPath=".spec.source",priority=0
-//+kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".spec.destination",priority=0
 //+kubebuilder:printcolumn:name="Offer",type="string",JSONPath=".spec.offer",priority=0
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.compliance",priority=0
+//+kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.firstReason",priority=0
 //+kubebuilder:printcolumn:name="LastChange",type="date",JSONPath=".status.lastComplianceChangeTimestamp",priority=1
 //+kubebuilder:printcolumn:name="LastMitigation",type="date",JSONPath=".status.lastMitigatedTimestamp",priority=1
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
+//+kubebuilder:printcolumn:name="Targets",type="string",JSONPath=".spec.targets",priority=1
 
 // ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
 //+genclient.

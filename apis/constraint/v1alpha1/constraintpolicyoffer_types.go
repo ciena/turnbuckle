@@ -111,6 +111,7 @@ type ConstraintPolicyOfferStatus struct {
 //+kubebuilder:printcolumn:name="Compliant",type="integer",JSONPath=".status.compliantBindingCount",priority=0
 //+kubebuilder:printcolumn:name="Selector",type="string",JSONPath=".status.bindingSelector",priority=1
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
+//+kubebuilder:printcolumn:name="Targets",type="string",JSONPath=".spec.targets",priority=1
 
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
 //+genclient.

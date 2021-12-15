@@ -19,17 +19,14 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.source
-      name: Source
-      type: string
-    - jsonPath: .spec.destination
-      name: Destination
-      type: string
     - jsonPath: .spec.offer
       name: Offer
       type: string
     - jsonPath: .status.compliance
       name: Status
+      type: string
+    - jsonPath: .status.firstReason
+      name: Reason
       type: string
     - jsonPath: .status.lastComplianceChangeTimestamp
       name: LastChange
@@ -42,6 +39,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .spec.targets
+      name: Targets
+      priority: 1
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

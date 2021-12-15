@@ -1,0 +1,5 @@
+kopf>=1.35.3
+grpcio-tools>=1.42.0
+grpcio-reflection>=1.42.0
+futures==2.2.0
+kubernetes>=20.13.0
