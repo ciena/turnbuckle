@@ -87,9 +87,9 @@ metadata:
   name: secure
 spec:
   rules:
-    - constraint: encrypted
+    - name: encrypted
       request: true
-    - constraint: encrypted-bit-count
+    - name: encrypted-bit-count
       request: 2048
 ```
 
@@ -102,7 +102,7 @@ metadata:
   name: bandwidth-restriction
 spec:
   rules:
-    - constraint: bandwidth
+    - name: bandwidth
       request: 1MiB
       limit: 2KiB
 ```
@@ -116,7 +116,7 @@ metadata:
   name: low-latency
 spec:
   rules:
-    - constraint: latency
+    - name: latency
       request: 5ms
       limit: 20ms
   period: 1m
@@ -138,12 +138,14 @@ spec:
       apiVersion: v1
       kind: Pod 
       labelSelector:
-        app: client
+        matchLabels:
+          app: client
     - name: destination
       apiVersion: v1
       kind: Pod
       labelSelector:
-        app: server
+        matchLabels:
+          app: server
   policies:
     - bandwidth-restriction
     - low-latency
@@ -165,7 +167,8 @@ spec:
     - apiVersion: v1
       kind: Pod
       labelSelector:
-        app: vr-server
+        matchLabels:
+          app: vr-server
   policies:
     - big-machine
   period: 15s
@@ -213,7 +216,11 @@ The status of the ConstraintPolicyBinding instances report the compliance
 state of the concrete binding with its originating ConstraintPolicyOffer.
 
 ```bash
-TODO - insert output of get constraintpolicybindings command
+$ kubectl get cpb
+NAME                      OFFER           STATUS      REASON          AGE
+complex-offer-7c5d69c78   complex-offer   Compliant                   18h
+large-offer-b998f7c99     large-offer     Violation   Not good        18h
+gold-offer-67d6546bd      gold-offer      Limit       still working   18h
 ```
 
 ## Rule Extensibility
@@ -224,12 +231,14 @@ have implementors "fork" the core of the capability the following is
 implemented to support rule extensions.
 
 A `PolicyRuleProvider` is be a pod that implements the logic for one or more
-constraint rules, i.e. latency, jitter, etc. This pod implements a defined
-gRPC interface that is utilized by the scheduler and evaluation capabilities
-of this project.
+constraint rules, i.e. latency, jitter, etc. This pod implements a [defined
+gRPC interface](./apis/ruleprovider.proto) that is utilized by the scheduler
+and evaluation capabilities of this project.
 
 ```go
-TODO - insert snippet of interface definition
+service RuleProvider {
+    rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+}
 ```
 
 The binding of a rule type to its implementation will be managed by applying
@@ -244,7 +253,6 @@ The advantage of providing an exposed mechanism to bind the provider to an
 implementation is that it enables visibility of the binding to the operator as
 well as it enables the operator to dynamically modify the binding including
 the ability to upgrade a operator in a prescriptive manner.
-
 
 ## Implementation considerations
 
