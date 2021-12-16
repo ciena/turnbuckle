@@ -7,3 +7,5 @@ images:
 - name: mock
   newName: localhost:32000/rule-provider-mock
   newTag: v0.0.1-alpha
+patches:
+- ./patch-service.yaml
