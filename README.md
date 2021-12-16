@@ -1,4 +1,4 @@
-# [![turnbuckle](./assets/turnbuckle_64x64.png)](https://github.com/ciena/turnbuckle)
+# [![turnbuckle](./assets/turnbuckle_rounded_white_64x64.png)](https://github.com/ciena/turnbuckle)
 
 ---
 
@@ -136,7 +136,7 @@ spec:
   targets:
     - name: source
       apiVersion: v1
-      kind: Pod 
+      kind: Pod
       labelSelector:
         matchLabels:
           app: client
