@@ -265,7 +265,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			// nolint:gocritic
 			if err := r.Client.List(context.TODO(), &svcs,
 				client.InNamespace(req.Namespace),
-				client.HasLabels([]string{fmt.Sprintf(providerLabel, rule.Name)})); err != nil {
+				client.MatchingLabels(map[string]string{fmt.Sprintf(providerLabel, rule.Name): "enabled"})); err != nil {
 				ruleDetail.Compliance = types.ComplianceError
 				ruleDetail.Reason = err.Error()
 			} else if len(svcs.Items) == 0 {

@@ -246,8 +246,10 @@ labels to the services which implement the provider interface for the metrics.
 The labels are of a well know format:
 
 ```
-constraint.ciena.com/constraint-<metric-name>
+constraint.ciena.com/constraint-<metric-name>: enabled
 ```
+
+The service will only be matched if the value of the lanel is `enabled`.
 
 The advantage of providing an exposed mechanism to bind the provider to an
 implementation is that it enables visibility of the binding to the operator as
