@@ -77,7 +77,7 @@ docker-push: ## Push docker image with the manager.
 
 .PHONY: clean
 clean: ## Delete build and/or temporary artifacts
-	rm -rf ./bin ./*.out ./*.log
+	rm -rf ./bin ./*.out ./*.log $$(find . -name __pycache__)
 
 ##@ Deployment
 
