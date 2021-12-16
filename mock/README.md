@@ -11,7 +11,7 @@ $ make docker-build docker-push install deploy
 ```
 
 Then apply any required RuleProvider resources. Examples can be found
-[here](.examples).
+[here](./examples).
 
 ## What is a rule provider?
 
@@ -19,7 +19,7 @@ Within the Kubernetes constraint policy capability (turnbuckle) a rule
 provider is a service that is used to evaluate a constraint rule against
 a set of target resources and return the compliance of the rule. Specifically
 a rule provider must implement the gRPC interface defined
-[here](../ruleprovider.proto).
+[here](../apis/ruleprovider.proto).
 
 ## What is the mock controller
 
