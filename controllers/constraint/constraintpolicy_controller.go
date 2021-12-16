@@ -20,20 +20,21 @@ import (
 	"context"
 	"fmt"
 
+	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 )
 
-// ConstraintPolicyReconciler reconciles a ConstraintPolicy object
+// ConstraintPolicyReconciler reconciles a Policy object.
+// nolint:revive
 type ConstraintPolicyReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
+// nolint:lll
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies/finalizers,verbs=update
@@ -48,21 +49,26 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	var policy cpv1.ConstraintPolicy
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, &policy); err != nil {
 		if isNotFoundOrGone(err) {
-			logger.V(1).Info("not-found", "namespace", req.NamespacedName.Namespace,
-				"name", req.NamespacedName.Name)
+			logger.V(1).Info("not-found", lkNamespace, req.NamespacedName.Namespace,
+				lkName, req.NamespacedName.Name)
+
 			return ctrl.Result{}, nil
 		}
-		logger.V(1).Info("api-error",
+
+		logger.V(1).Info(apiError,
 			"error", err.Error(),
 			"op", "get",
-			"namespace", req.NamespacedName.Namespace,
-			"name", req.NamespacedName.Name)
+			lkNamespace, req.NamespacedName.Namespace,
+			lkName, req.NamespacedName.Name)
+
+		// nolint:wrapcheck
 		return ctrl.Result{}, err
 	}
 
 	// Update the table subresource. this resource is simply to aid in the
 	// display of the resource from the command line.
 	list := []string{}
+
 	for _, rule := range policy.Spec.Rules {
 		list = append(list, rule.Name)
 	}
@@ -73,6 +79,8 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		policy.Status.Table.Rules = list
 		if err := r.Client.Status().Update(context.TODO(), &policy); err != nil {
 			logger.V(1).Info("status-update-error", "error", err.Error())
+
+			// nolint:wrapcheck
 			return ctrl.Result{}, err
 		}
 	}
@@ -82,6 +90,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cpv1.ConstraintPolicy{}).
 		Complete(r)

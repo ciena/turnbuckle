@@ -47,6 +47,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .spec.targets
+      name: Targets
+      priority: 1
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -66,7 +70,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer
+            description: ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer.
             properties:
               grace:
                 description: Garce defines how long a policy must be out of range
@@ -182,7 +186,7 @@ spec:
             type: object
           status:
             description: ConstraintPolicyOfferStatus defines the observed state of
-              ConstraintPolicyOffer
+              ConstraintPolicyOffer.
             properties:
               bindingCount:
                 description: BindingCount summary of how many bindings were created

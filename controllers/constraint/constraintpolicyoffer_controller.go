@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	options "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -35,39 +34,44 @@ const (
 	labelRef = "constraint.ciena.io/constraintPolicyOffer"
 )
 
-// ConstraintPolicyOfferReconciler reconciles a ConstraintPolicyOffer object
+// ConstraintPolicyOfferReconciler reconciles a ConstraintPolicyOffer object.
+// nolint:revive
 type ConstraintPolicyOfferReconciler struct {
 	client.Client
-	Scheme                       *runtime.Scheme
-	OfferEvaluationErrorInterval time.Duration
-	OfferEvaluationInterval      time.Duration
+	Scheme                  *runtime.Scheme
+	EvaluationErrorInterval time.Duration
+	EvaluationInterval      time.Duration
 }
 
-// visitState used to track if binding are still valid
+// visitState used to track if binding are still valid.
 type visitState struct {
 	Visited bool
 	Binding *cpv1.ConstraintPolicyBinding
 }
 
-func (r *ConstraintPolicyOfferReconciler) checkAndUpdateStatus(offer *cpv1.ConstraintPolicyOffer, count, compliant int) error {
+func (r *ConstraintPolicyOfferReconciler) checkAndUpdateStatus(
+	offer *cpv1.ConstraintPolicyOffer, count, compliant int) error {
 	if offer.Status.BindingCount != count ||
 		offer.Status.CompliantBindingCount != compliant ||
 		offer.Status.BindingSelector != labelRef+"="+offer.Name {
-
 		offer.Status.BindingCount = count
 		offer.Status.CompliantBindingCount = compliant
 		offer.Status.BindingSelector = labelRef + "=" + offer.Name
 
+		// nolint:wrapcheck
 		return r.Client.Status().Update(context.TODO(), offer)
 	}
 
 	return nil
 }
 
+// nolint:lll
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers/finalizers,verbs=update
 
+// Reconcile reconciles updates to the offer resource instances.
+// nolint:funlen,gocognit,cyclop
 func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("constraintpolicyoffer",
 		req.NamespacedName)
@@ -75,33 +79,38 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	// Lookup the offer being reconciled
 	var offer cpv1.ConstraintPolicyOffer
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, &offer); err != nil {
-
 		if isNotFoundOrGone(err) {
 			if r.Client.DeleteAllOf(context.TODO(), &cpv1.ConstraintPolicyBinding{},
-				options.InNamespace(req.NamespacedName.Namespace),
-				options.MatchingLabels(map[string]string{
-					labelRef: req.NamespacedName.Name})) != nil {
-				logger.V(0).Info("api-error", "error", err.Error())
-				return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
+				client.InNamespace(req.NamespacedName.Namespace),
+				client.MatchingLabels(map[string]string{
+					labelRef: req.NamespacedName.Name,
+				})) != nil {
+				logger.V(0).Info(apiError, "error", err.Error())
+
+				// nolint:nilerr
+				return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 			}
 
 			// Offer if gone, no need to retry
 			return ctrl.Result{}, nil
-		} else {
-			logger.V(0).Info("api-error", "error", err.Error())
-			return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
 		}
+
+		logger.V(0).Info(apiError, "error", err.Error())
+
+		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 	}
 
 	// Lookup all the bindings owned by this offer
 	var bindings cpv1.ConstraintPolicyBindingList
 	if err := r.Client.List(context.TODO(), &bindings,
-		options.InNamespace(req.Namespace),
-		options.MatchingLabels(map[string]string{
-			labelRef: req.NamespacedName.Name})); err != nil {
+		client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{
+			labelRef: req.NamespacedName.Name,
+		})); err != nil {
 		if !isNotFoundOrGone(err) {
-			logger.V(0).Info("api-error", "error", err.Error())
-			return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
+			logger.V(0).Info(apiError, "error", err.Error())
+
+			return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 		}
 	}
 
@@ -111,7 +120,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	for i, binding := range bindings.Items {
 		visits[binding.Name] = &visitState{
 			Visited: false,
-			Binding: &bindings.Items[i],
+			Binding: bindings.Items[i],
 		}
 	}
 
@@ -122,6 +131,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		if targetName == "" {
 			targetName = "default"
 		}
+
 		// Add the empty target reference. This is important so that
 		// when calculating permutations we know if we have have an empty
 		// target list, because an empty target list means that there
@@ -130,23 +140,26 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 		set, err := metav1.LabelSelectorAsMap(target.LabelSelector)
 		if err != nil {
-			logger.V(0).Error(err, "selector-parse-error", "namespace", req.NamespacedName.Namespace,
-				"name", req.NamespacedName.Name, "type", targetName, "selector", target.LabelSelector)
-			return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
+			logger.V(0).Error(err, "selector-parse-error", lkNamespace, req.NamespacedName.Namespace,
+				lkName, req.NamespacedName.Name, "type", targetName, "selector", target.LabelSelector)
+
+			return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 		}
 
 		found := uv1.UnstructuredList{}
 		found.SetKind(target.Kind)
 		found.SetAPIVersion(target.APIVersion)
-		if err := r.Client.List(context.TODO(), &found,
-			options.InNamespace(req.NamespacedName.Namespace),
-			options.MatchingLabels(set)); err != nil {
 
+		if err := r.Client.List(context.TODO(), &found,
+			client.InNamespace(req.NamespacedName.Namespace),
+			client.MatchingLabels(set)); err != nil {
 			if !isNotFoundOrGone(err) {
-				logger.V(0).Error(err, "api-error")
-				return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
+				logger.V(0).Error(err, apiError)
+
+				return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 			}
 		}
+
 		for _, item := range found.Items {
 			ref := types.NewReferenceFromUnstructured(item)
 			if !refs[targetName].Contains(ref) {
@@ -161,12 +174,27 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	// offer are not valid and should be deleted.
 
 	// Iterate over all tuples of targets
-	for _, permutation := range refs.Permutations() {
+	keys, permutations := refs.Permutations()
+	for _, permutation := range permutations {
 		bindingName := permutation.AsBindingName(offer.ObjectMeta.Name)
 		if visit, ok := visits[bindingName]; ok {
 			visit.Visited = true
+
 			continue
 		}
+
+		targets := make(map[string]types.Reference)
+
+		for i := 0; i < len(keys); i++ {
+			targets[keys[i]] = types.Reference{
+				Cluster:    permutation[i].Cluster,
+				APIVersion: permutation[i].APIVersion,
+				Kind:       permutation[i].Kind,
+				Namespace:  permutation[i].Namespace,
+				Name:       permutation[i].Name,
+			}
+		}
+
 		binding := cpv1.ConstraintPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: req.NamespacedName.Namespace,
@@ -176,18 +204,23 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 				},
 			},
 			Spec: cpv1.ConstraintPolicyBindingSpec{
-				Offer: offer.ObjectMeta.Name,
+				Offer:   offer.ObjectMeta.Name,
+				Targets: targets,
 			},
 			Status: cpv1.ConstraintPolicyBindingStatus{
 				Compliance: "Pending",
-				Details:    []cpv1.ConstraintPolicyBindingStatusDetail{},
+				Details:    []*cpv1.ConstraintPolicyBindingStatusDetail{},
 			},
 		}
-		logger.V(0).Info("CREATE", "name", bindingName)
+
+		logger.V(0).Info("CREATE", lkName, bindingName)
+
 		if err := r.Client.Create(context.TODO(), &binding); err != nil {
 			logger.V(0).Error(err, "binding-creation")
+
 			continue
 		}
+
 		visits[bindingName] = &visitState{
 			Visited: true,
 			Binding: &binding,
@@ -196,31 +229,37 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 	count := 0
 	compliant := 0
+
 	for name, visit := range visits {
 		if visit.Visited {
 			count++
+
 			if visit.Binding.Status.Compliance == "Compliant" {
 				compliant++
 			}
+
 			continue
 		}
+
 		if err := r.Client.Delete(context.TODO(), visit.Binding); err != nil {
 			if !isNotFoundOrGone(err) {
-				logger.V(0).Error(err, "delete-binding", "name", name)
+				logger.V(0).Error(err, "delete-binding", lkName, name)
 			}
 		}
 	}
 
 	if err := r.checkAndUpdateStatus(&offer, count, compliant); err != nil {
-		logger.V(0).Error(err, "status-update", "name", offer.ObjectMeta.Name)
-		return ctrl.Result{RequeueAfter: r.OfferEvaluationErrorInterval}, nil
+		logger.V(0).Error(err, "status-update", lkName, offer.ObjectMeta.Name)
+
+		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 	}
 
-	return ctrl.Result{RequeueAfter: r.OfferEvaluationInterval}, nil
+	return ctrl.Result{RequeueAfter: r.EvaluationInterval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintPolicyOfferReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cpv1.ConstraintPolicyOffer{}).
 		Complete(r)

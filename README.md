@@ -1,4 +1,8 @@
-# [![turnbuckle](./assets/turnbuckle_64x64.png)](https://github.com/ciena/turnbuckle) Turnbuckle - Extensible constraint policy for Kubernetes
+# [![turnbuckle](./assets/turnbuckle_64x64.png)](https://github.com/ciena/turnbuckle)
+
+---
+
+Turnbuckle - Extensible constraint policy for Kubernetes
 
 ## Summary
 
@@ -129,18 +133,17 @@ kind: ConstraintPolicyOffer
 metadata:
   name: slow-and-low
 spec:
-  source:
-    clusterSelector:
-      clusterType: edge
-    nodeSelector:
-      fpga: true
-    podSelector:
-      app: firewall
-  destination:
-    source:
-      clusterSelector:
-        clusterType: metro
-      app: fw-rule-server
+  targets:
+    - name: source
+      apiVersion: v1
+      kind: Pod 
+      labelSelector:
+        app: client
+    - name: destination
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        app: server
   policies:
     - bandwidth-restriction
     - low-latency
@@ -156,17 +159,15 @@ spec:
 apiVersion: constraint.ciena.com/v1alpha1
 kind: ConstraintPolicyOffer
 metadata:
-  name: fast-and-low
+  name: memory-and-cpu
 spec:
-  source:
-    matchLabels:
-      endpointID: 8374643A-D965-4F23-9089-C3F19A02D688
-  destination:
-    podSelector:
-      app: vr-server
+  targets:
+    - apiVersion: v1
+      kind: Pod
+      labelSelector:
+        app: vr-server
   policies:
-    - low-latency
-    - high-bandwidth
+    - big-machine
   period: 15s
   grace: 1m
   violationPolicy: Evict

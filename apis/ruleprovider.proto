@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package ruleprovider;
+
+option go_package = "apis/ruleprovider";
+
+// Defines a single policy rule
+message PolicyRule {
+
+    // the type which this rule applies
+    string name = 1;
+
+    // the condition for the policy type against the value
+    string request = 2;
+
+    // the value to which to apply the condition
+    string limit = 3;
+}
+
+message Target {
+    string cluster = 1;
+    string namespace = 2;
+    string apiVersion = 3;
+    string kind = 4;
+    string name = 5;
+}
+
+message EvaluateRequest {
+    map<string, Target> targets = 1;
+    PolicyRule rule = 2;
+}
+
+message EvaluateResponse {
+    enum ComplianceState {
+        Pending = 0;
+        Compliant = 1;
+        Limit = 2;
+        Violation = 3;
+        Error = 4;
+    }
+    ComplianceState compliance = 1;
+    string reason = 2;
+}
+
+service RuleProvider {
+    rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+}
