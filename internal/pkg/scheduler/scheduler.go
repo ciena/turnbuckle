@@ -1,9 +1,9 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
-	"github.com/ciena/turnbuckle/internal/pkg/nsm"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +44,6 @@ type ConstraintPolicySchedulerOptions struct {
 
 func NewScheduler(options ConstraintPolicySchedulerOptions, clientset *kubernetes.Clientset,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
-	networkServiceClient nsm.NetworkServiceClient,
 	log logr.Logger) *ConstraintPolicyScheduler {
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
@@ -61,7 +60,7 @@ func NewScheduler(options ConstraintPolicySchedulerOptions, clientset *kubernete
 		Extender:              options.Extender,
 		CheckForDuplicatePods: options.CheckForDuplicatePods,
 	},
-		clientset, constraintPolicyClient, networkServiceClient, log.WithName("default-planner"),
+		clientset, constraintPolicyClient, log.WithName("default-planner"),
 		addPodCallback, nil, deletePodCallback)
 
 	constraintPolicyScheduler.options = options
@@ -158,7 +157,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 		}
 	}()
 
-	pod, err := s.defaultPlanner.GetClientset().CoreV1().Pods(data.Namespace).Get(data.Name, metav1.GetOptions{})
+	pod, err := s.defaultPlanner.GetClientset().CoreV1().Pods(data.Namespace).Get(context.Background(), data.Name, metav1.GetOptions{})
 	if err != nil {
 		s.log.Error(err, "pod-requeue-pod-get-failure", "pod", data.Name)
 		return false
@@ -305,7 +304,7 @@ func (s *ConstraintPolicyScheduler) FindBestNodes(pod *v1.Pod, feasibleNodes []v
 }
 
 func (s *ConstraintPolicyScheduler) bindPod(p *v1.Pod, node *v1.Node) error {
-	return s.defaultPlanner.GetClientset().CoreV1().Pods(p.Namespace).Bind(&v1.Binding{
+	return s.defaultPlanner.GetClientset().CoreV1().Pods(p.Namespace).Bind(context.Background(), &v1.Binding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      p.Name,
 			Namespace: p.Namespace,
@@ -315,31 +314,36 @@ func (s *ConstraintPolicyScheduler) bindPod(p *v1.Pod, node *v1.Node) error {
 			Kind:       "Node",
 			Name:       node.Name,
 		},
-	})
+	},
+		metav1.CreateOptions{},
+	)
 }
 
 func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
 	timestamp := time.Now().UTC()
-	_, err := s.defaultPlanner.GetClientset().CoreV1().Events(p.Namespace).Create(&v1.Event{
-		Count:          1,
-		Message:        message,
-		Reason:         "Scheduled",
-		LastTimestamp:  metav1.NewTime(timestamp),
-		FirstTimestamp: metav1.NewTime(timestamp),
-		Type:           "Normal",
-		Source: v1.EventSource{
-			Component: SchedulerName,
+	_, err := s.defaultPlanner.GetClientset().CoreV1().Events(p.Namespace).Create(context.Background(),
+		&v1.Event{
+			Count:          1,
+			Message:        message,
+			Reason:         "Scheduled",
+			LastTimestamp:  metav1.NewTime(timestamp),
+			FirstTimestamp: metav1.NewTime(timestamp),
+			Type:           "Normal",
+			Source: v1.EventSource{
+				Component: SchedulerName,
+			},
+			InvolvedObject: v1.ObjectReference{
+				Kind:      "Pod",
+				Name:      p.Name,
+				Namespace: p.Namespace,
+				UID:       p.UID,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: p.Name + "-",
+			},
 		},
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Name:      p.Name,
-			Namespace: p.Namespace,
-			UID:       p.UID,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: p.Name + "-",
-		},
-	})
+		metav1.CreateOptions{},
+	)
 	if err != nil {
 		return err
 	}

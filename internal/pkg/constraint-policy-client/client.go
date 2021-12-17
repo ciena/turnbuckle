@@ -87,7 +87,7 @@ func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context,
 		Resource("constraintpolicybindings").
 		Name(name).
 		VersionedParams(&opts, ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -99,7 +99,7 @@ func (c *constraintPolicyClient) GetConstraintPolicyOffer(ctx context.Context, n
 		Resource("constraintpolicyoffers").
 		Name(name).
 		VersionedParams(&opts, ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -111,7 +111,7 @@ func (c *constraintPolicyClient) GetConstraintPolicy(ctx context.Context, namesp
 		Resource("constraintpolicies").
 		Name(name).
 		VersionedParams(&opts, ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -127,7 +127,7 @@ func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Contex
 		Resource("constraintpolicybindings").
 		VersionedParams(&opts, ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -143,7 +143,7 @@ func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context,
 		Resource("constraintpolicyoffers").
 		VersionedParams(&opts, ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, nam
 		Resource("constraintpolicies").
 		VersionedParams(&opts, ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

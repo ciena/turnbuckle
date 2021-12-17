@@ -7,7 +7,6 @@ import (
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	graph "github.com/ciena/turnbuckle/internal/pkg/graph"
-	"github.com/ciena/turnbuckle/internal/pkg/nsm"
 	podpredicates "github.com/ciena/turnbuckle/internal/pkg/podpredicates"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
@@ -36,7 +35,6 @@ type ConstraintPolicySchedulerPlanner struct {
 	options                ConstraintPolicySchedulerPlannerOptions
 	clientset              *kubernetes.Clientset
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient
-	networkServiceClient   nsm.NetworkServiceClient
 	log                    logr.Logger
 	nodeLister             listersv1.NodeLister
 	graph                  *graph.Graph
@@ -62,10 +60,9 @@ type PodPlannerInfo struct {
 }
 
 type constraintPolicyOffer struct {
-	offer          *constraintv1alpha1.ConstraintPolicyOffer
-	peerToNodeMap  map[ObjectMeta]string
-	peerNodeNames  []string
-	nsmPriorityMap map[string]int
+	offer         *constraintv1alpha1.ConstraintPolicyOffer
+	peerToNodeMap map[ObjectMeta]string
+	peerNodeNames []string
 }
 
 type workWrapper struct {
@@ -74,7 +71,6 @@ type workWrapper struct {
 
 func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions, clientset *kubernetes.Clientset,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
-	networkServiceClient nsm.NetworkServiceClient,
 	log logr.Logger,
 	addPodCallback func(pod *v1.Pod),
 	updatePodCallback func(old *v1.Pod, new *v1.Pod),
@@ -84,7 +80,6 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 		options:                options,
 		clientset:              clientset,
 		constraintPolicyClient: constraintPolicyClient,
-		networkServiceClient:   networkServiceClient,
 		log:                    log,
 		nodeQueue:              make(chan *v1.Node, 100),
 		podUpdateQueue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -155,9 +150,9 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 	return constraintPolicySchedulerPlanner
 }
 
-func NewPlanner(options ConstraintPolicySchedulerPlannerOptions, clientset *kubernetes.Clientset, constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
-	networkServiceClient nsm.NetworkServiceClient, log logr.Logger) *ConstraintPolicySchedulerPlanner {
-	return NewPlannerWithPodCallbacks(options, clientset, constraintPolicyClient, networkServiceClient, log, nil, nil, nil)
+func NewPlanner(options ConstraintPolicySchedulerPlannerOptions, clientset *kubernetes.Clientset,
+	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient, log logr.Logger) *ConstraintPolicySchedulerPlanner {
+	return NewPlannerWithPodCallbacks(options, clientset, constraintPolicyClient, log, nil, nil, nil)
 }
 
 func getEligibleNodes(nodeLister listersv1.NodeLister) ([]*v1.Node, error) {
@@ -211,7 +206,7 @@ func initGraphWithNodeLister(nodeLister listersv1.NodeLister, log logr.Logger) (
 func initGraph(clientset *kubernetes.Clientset, log logr.Logger) (*graph.Graph, error) {
 	var nodes, eligibleNodes, preferNoScheduleNodes []v1.Node
 	var err error
-	allNodes, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{})
+	allNodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +315,7 @@ func (s *ConstraintPolicySchedulerPlanner) releaseUnderlayPath(pod *v1.Pod) erro
 	}
 	// update the pod finalizer with the new set
 	pod.ObjectMeta.Finalizers = newFinalizers
-	if _, err := s.clientset.CoreV1().Pods(pod.Namespace).Update(pod); err != nil {
+	if _, err := s.clientset.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
 		s.log.Error(err, "underlay-path-release-pod-update-failed", "pod", pod.Name)
 		return err
 	} else {
@@ -388,7 +383,7 @@ func matchesLabelSelector(labelSelector *metav1.LabelSelector, pod *v1.Pod) (boo
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels labels.Set) (map[ObjectMeta]string, error) {
-	endpoints, err := s.clientset.CoreV1().Endpoints("").List(
+	endpoints, err := s.clientset.CoreV1().Endpoints("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: endpointLabels.String()})
 	if err != nil {
 		return nil, err
@@ -402,7 +397,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels label
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (map[ObjectMeta]string, error) {
-	pods, err := s.clientset.CoreV1().Pods("").List(
+	pods, err := s.clientset.CoreV1().Pods("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: podLabels.String()})
 	if err != nil {
 		return nil, err
@@ -441,77 +436,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeers(selector *constraintv1alpha1
 			return s.getPeerEndpoints(labels.Set(set))
 		}
 	}
-	if selector.Kind == "NetworkService" && selector.LabelSelector != nil {
-		if set, err := metav1.LabelSelectorAsMap(selector.LabelSelector); err != nil {
-			s.log.Error(err, "error-getting-label-selector-for-networkservices")
-			return nil, err
-		} else {
-			if _, peerMap, _, err := s.matchAndGetNsmPeers(labels.Everything(), metav1.NamespaceAll, set, selector.Mode); err != nil {
-				return nil, err
-			} else {
-				return peerMap, nil
-			}
-		}
-	}
 	return nil, nil
-}
-
-func (s *ConstraintPolicySchedulerPlanner) matchAndGetNsmPeers(podSelector labels.Selector, serviceNamespace string, selectorLabel labels.Set, mode string) (bool, map[ObjectMeta]string, map[string]int, error) {
-	var neighbors []v1.Pod
-	var matched bool
-	nsmMap, err := s.networkServiceClient.DecomposeNetworkServices(context.TODO(), serviceNamespace, mode, selectorLabel)
-	if err != nil {
-		s.log.Error(err, "error-decomposing-network-services-for-source-selector", "selector", selectorLabel.String())
-		return false, nil, nil, err
-
-	}
-	// priority of the pod within the matched nsm services
-	nsmPriorityMap := make(map[string]int)
-loop:
-	for svc, entries := range nsmMap {
-		for i, entry := range entries {
-			for _, p := range entry.Pods {
-				if podSelector.Matches(labels.Set(p.Labels)) {
-					matched = true
-					nsmPriorityMap[svc] = i
-					s.log.V(0).Info("nsm-match", "selector", podSelector.String())
-					switch i {
-					case 0:
-						if i+1 < len(entries) {
-							neighbors = append(neighbors, entries[i+1].Pods...)
-						}
-					case len(entries) - 1:
-						//last entry, previous neighbor
-						neighbors = append(neighbors, entries[i-1].Pods...)
-					default:
-						//middle entry, prev and next neighbor
-						neighbors = append(neighbors, entries[i-1].Pods...)
-						neighbors = append(neighbors, entries[i+1].Pods...)
-					}
-					if !podSelector.Empty() {
-						break loop
-					}
-				}
-			}
-		}
-	}
-	peerMap := make(map[ObjectMeta]string)
-	if len(neighbors) == 0 {
-		return matched, peerMap, nsmPriorityMap, nil
-	}
-	for _, neighbor := range neighbors {
-		if neighbor.Status.Phase == v1.PodFailed || neighbor.DeletionTimestamp != nil {
-			continue
-		}
-		var podNodeName string
-		if nodeName, err := s.GetNodeName(neighbor); err == nil {
-			podNodeName = nodeName
-		} else {
-			podNodeName = ""
-		}
-		peerMap[ObjectMeta{Name: neighbor.Name, Namespace: neighbor.Namespace}] = podNodeName
-	}
-	return true, peerMap, nsmPriorityMap, nil
 }
 
 func getPeerNodeNames(peerToNodeMap map[ObjectMeta]string) []string {
@@ -551,8 +476,6 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]const
 	for _, offer := range offers.Items {
 		var peerToNodeMap map[ObjectMeta]string
 		var peerNodeNames []string
-		var peerNsmMap map[ObjectMeta]string
-		var nsmPriorityMap map[string]int
 		var matched bool
 		peers := []*constraintv1alpha1.ConstraintPolicyOfferTarget{}
 		for _, target := range offer.Spec.Targets {
@@ -563,22 +486,6 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]const
 					continue
 				} else {
 					targetMatch = match
-				}
-			}
-			if target.Kind == "NetworkService" && target.LabelSelector != nil {
-				set, err := metav1.LabelSelectorAsMap(target.LabelSelector)
-				if err != nil {
-					s.log.Error(err, "error-getting-label-selector-as-map", "offer", offer.Name)
-					continue
-				}
-				if m, peerMap, prioMap, err := s.matchAndGetNsmPeers(labels.Set(pod.Labels).AsSelector(),
-					pod.Namespace, set, target.Mode); err != nil {
-					s.log.Error(err, "error-matching-nsm-peers-for-source-selector", "offer", offer.Name)
-					continue
-				} else {
-					targetMatch = m
-					nsmPriorityMap = prioMap
-					peerNsmMap = peerMap
 				}
 			}
 			if !targetMatch {
@@ -597,13 +504,11 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]const
 					}
 				}
 			}
-			peerToNodeMap = mergePeers(peerToNodeMap, peerNsmMap)
 			peerNodeNames = getPeerNodeNames(peerToNodeMap)
 			offerList = append(offerList, constraintPolicyOffer{
-				offer:          offer,
-				peerToNodeMap:  peerToNodeMap,
-				peerNodeNames:  peerNodeNames,
-				nsmPriorityMap: nsmPriorityMap,
+				offer:         offer,
+				peerToNodeMap: peerToNodeMap,
+				peerNodeNames: peerNodeNames,
 			})
 		}
 	}
@@ -614,7 +519,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]const
 }
 
 func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayController, error) {
-	svcs, err := s.clientset.CoreV1().Services("").List(
+	svcs, err := s.clientset.CoreV1().Services("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: "constraint.ciena.io/underlay-controller"})
 	if err != nil {
 		return nil, err
@@ -629,7 +534,7 @@ func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayC
 }
 
 func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(name, namespace string) (RuleProvider, error) {
-	svcs, err := s.clientset.CoreV1().Services("").List(
+	svcs, err := s.clientset.CoreV1().Services("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("constraint.ciena.io/provider-%s", name)})
 	if err != nil {
 		return nil, err
@@ -1037,7 +942,7 @@ func (s *ConstraintPolicySchedulerPlanner) ToNodeName(endpoint types.Reference) 
 	if endpoint.Kind != "Pod" {
 		return endpoint.Name, nil
 	}
-	pods, err := s.clientset.CoreV1().Pods(endpoint.Namespace).List(
+	pods, err := s.clientset.CoreV1().Pods(endpoint.Namespace).List(context.Background(),
 		metav1.ListOptions{},
 	)
 	if err != nil {
@@ -1100,7 +1005,7 @@ func (s *ConstraintPolicySchedulerPlanner) processUpdate(item interface{}) {
 	}
 
 	// get the latest version of the item
-	pod, err := s.clientset.CoreV1().Pods(data.Namespace).Get(data.Name, metav1.GetOptions{})
+	pod, err := s.clientset.CoreV1().Pods(data.Namespace).Get(context.Background(), data.Name, metav1.GetOptions{})
 	if err != nil {
 		return
 	}
@@ -1146,7 +1051,7 @@ func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(pod *v1.Pod, pathId s
 		}
 	}
 	pod.ObjectMeta.Finalizers = append(pod.ObjectMeta.Finalizers, podFinalizer)
-	if _, err := s.clientset.CoreV1().Pods(pod.Namespace).Update(pod); err != nil {
+	if _, err := s.clientset.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil

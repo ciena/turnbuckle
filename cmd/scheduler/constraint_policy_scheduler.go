@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
-	"github.com/ciena/turnbuckle/internal/pkg/nsm"
 	"github.com/ciena/turnbuckle/internal/pkg/scheduler"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -164,11 +163,6 @@ func main() {
 		log.Error(err, "Error initializing constraint policy client interface")
 		os.Exit(1)
 	}
-	networkServiceClient, err := nsm.New(kubeConfig, log.WithName("nsm-client"))
-	if err != nil {
-		log.Error(err, "Error initializing network service client interface")
-		os.Exit(1)
-	}
 	if config.Extender {
 		if config.NumRetriesOnFailure <= 0 {
 			config.NumRetriesOnFailure = 2
@@ -188,7 +182,7 @@ func main() {
 		FallbackOnNoOffers:    config.FallbackOnNoOffers,
 		CheckForDuplicatePods: config.CheckForDuplicatePods,
 	},
-		clientset, constraintPolicyClient, networkServiceClient, log.WithName("constraint-policy").WithName("scheduler"))
+		clientset, constraintPolicyClient, log.WithName("constraint-policy").WithName("scheduler"))
 
 	// first start the manager before starting the scheduler
 	go mgrStart()

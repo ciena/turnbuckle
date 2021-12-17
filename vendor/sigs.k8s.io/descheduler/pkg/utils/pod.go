@@ -2,10 +2,12 @@ package utils
 
 import (
 	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -102,23 +104,21 @@ func GetPodSource(pod *v1.Pod) (string, error) {
 	return "", fmt.Errorf("cannot get source of pod %q", pod.UID)
 }
 
-// IsCriticalPod returns true if pod's priority is greater than or equal to SystemCriticalPriority.
+// IsCriticalPod returns true if the pod is a static or mirror pod.
 func IsCriticalPod(pod *v1.Pod) bool {
 	if IsStaticPod(pod) {
 		return true
 	}
+
 	if IsMirrorPod(pod) {
 		return true
 	}
-	if pod.Spec.Priority != nil && IsCriticalPodBasedOnPriority(*pod.Spec.Priority) {
+
+	if pod.Spec.Priority != nil && *pod.Spec.Priority >= SystemCriticalPriority {
 		return true
 	}
-	return false
-}
 
-// IsCriticalPodBasedOnPriority checks if the given pod is a critical pod based on priority resolved from pod Spec.
-func IsCriticalPodBasedOnPriority(priority int32) bool {
-	return priority >= SystemCriticalPriority
+	return false
 }
 
 // PodRequestsAndLimits returns a dictionary of all defined resources summed up for all
@@ -178,4 +178,16 @@ func maxResourceList(list, new v1.ResourceList) {
 			}
 		}
 	}
+}
+
+// PodToleratesTaints returns true if a pod tolerates one node's taints
+func PodToleratesTaints(pod *v1.Pod, taintsOfNodes map[string][]v1.Taint) bool {
+	for nodeName, taintsForNode := range taintsOfNodes {
+		if len(pod.Spec.Tolerations) >= len(taintsForNode) && TolerationsTolerateTaintsWithFilter(pod.Spec.Tolerations, taintsForNode, nil) {
+			return true
+		}
+		klog.V(5).InfoS("Pod doesn't tolerate nodes taint", "pod", klog.KObj(pod), "nodeName", nodeName)
+	}
+
+	return false
 }

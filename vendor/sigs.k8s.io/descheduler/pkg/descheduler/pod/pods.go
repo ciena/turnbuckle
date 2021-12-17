@@ -17,6 +17,9 @@ limitations under the License.
 package pod
 
 import (
+	"context"
+	"sort"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -24,57 +27,112 @@ import (
 	"sigs.k8s.io/descheduler/pkg/utils"
 )
 
-const (
-	evictPodAnnotationKey = "descheduler.alpha.kubernetes.io/evict"
-)
-
-// IsEvictable checks if a pod is evictable or not.
-func IsEvictable(pod *v1.Pod, evictLocalStoragePods bool) bool {
-	ownerRefList := OwnerRef(pod)
-	if !HaveEvictAnnotation(pod) && (IsMirrorPod(pod) || (!evictLocalStoragePods && IsPodWithLocalStorage(pod)) || len(ownerRefList) == 0 || IsDaemonsetPod(ownerRefList) || IsCriticalPod(pod)) {
-		return false
-	}
-	return true
+type Options struct {
+	filter             func(pod *v1.Pod) bool
+	includedNamespaces []string
+	excludedNamespaces []string
 }
 
-// ListEvictablePodsOnNode returns the list of evictable pods on node.
-func ListEvictablePodsOnNode(client clientset.Interface, node *v1.Node, evictLocalStoragePods bool) ([]*v1.Pod, error) {
-	pods, err := ListPodsOnANode(client, node)
-	if err != nil {
-		return []*v1.Pod{}, err
+// WithFilter sets a pod filter.
+// The filter function should return true if the pod should be returned from ListPodsOnANode
+func WithFilter(filter func(pod *v1.Pod) bool) func(opts *Options) {
+	return func(opts *Options) {
+		opts.filter = filter
 	}
-	evictablePods := make([]*v1.Pod, 0)
-	for _, pod := range pods {
-		if !IsEvictable(pod, evictLocalStoragePods) {
-			continue
-		} else {
-			evictablePods = append(evictablePods, pod)
+}
+
+// WithNamespaces sets included namespaces
+func WithNamespaces(namespaces []string) func(opts *Options) {
+	return func(opts *Options) {
+		opts.includedNamespaces = namespaces
+	}
+}
+
+// WithoutNamespaces sets excluded namespaces
+func WithoutNamespaces(namespaces []string) func(opts *Options) {
+	return func(opts *Options) {
+		opts.excludedNamespaces = namespaces
+	}
+}
+
+// ListPodsOnANode lists all of the pods on a node
+// It also accepts an optional "filter" function which can be used to further limit the pods that are returned.
+// (Usually this is podEvictor.Evictable().IsEvictable, in order to only list the evictable pods on a node, but can
+// be used by strategies to extend it if there are further restrictions, such as with NodeAffinity).
+func ListPodsOnANode(
+	ctx context.Context,
+	client clientset.Interface,
+	node *v1.Node,
+	opts ...func(opts *Options),
+) ([]*v1.Pod, error) {
+	options := &Options{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	pods := make([]*v1.Pod, 0)
+
+	fieldSelectorString := "spec.nodeName=" + node.Name + ",status.phase!=" + string(v1.PodSucceeded) + ",status.phase!=" + string(v1.PodFailed)
+
+	if len(options.includedNamespaces) > 0 {
+		fieldSelector, err := fields.ParseSelector(fieldSelectorString)
+		if err != nil {
+			return []*v1.Pod{}, err
+		}
+
+		for _, namespace := range options.includedNamespaces {
+			podList, err := client.CoreV1().Pods(namespace).List(ctx,
+				metav1.ListOptions{FieldSelector: fieldSelector.String()})
+			if err != nil {
+				return []*v1.Pod{}, err
+			}
+			for i := range podList.Items {
+				if options.filter != nil && !options.filter(&podList.Items[i]) {
+					continue
+				}
+				pods = append(pods, &podList.Items[i])
+			}
+		}
+		return pods, nil
+	}
+
+	if len(options.excludedNamespaces) > 0 {
+		for _, namespace := range options.excludedNamespaces {
+			fieldSelectorString += ",metadata.namespace!=" + namespace
 		}
 	}
-	return evictablePods, nil
-}
 
-func ListPodsOnANode(client clientset.Interface, node *v1.Node) ([]*v1.Pod, error) {
-	fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(v1.PodSucceeded) + ",status.phase!=" + string(v1.PodFailed))
+	fieldSelector, err := fields.ParseSelector(fieldSelectorString)
 	if err != nil {
 		return []*v1.Pod{}, err
 	}
 
-	podList, err := client.CoreV1().Pods(v1.NamespaceAll).List(
+	// INFO(jchaloup): field selectors do not work properly with listers
+	// Once the descheduler switches to pod listers (through informers),
+	// We need to flip to client-side filtering.
+	podList, err := client.CoreV1().Pods(v1.NamespaceAll).List(ctx,
 		metav1.ListOptions{FieldSelector: fieldSelector.String()})
 	if err != nil {
 		return []*v1.Pod{}, err
 	}
 
-	pods := make([]*v1.Pod, 0)
 	for i := range podList.Items {
+		// fake client does not support field selectors
+		// so let's filter based on the node name as well (quite cheap)
+		if podList.Items[i].Spec.NodeName != node.Name {
+			continue
+		}
+		if options.filter != nil && !options.filter(&podList.Items[i]) {
+			continue
+		}
 		pods = append(pods, &podList.Items[i])
 	}
 	return pods, nil
 }
 
-func IsCriticalPod(pod *v1.Pod) bool {
-	return utils.IsCriticalPod(pod)
+// OwnerRef returns the ownerRefList for the pod.
+func OwnerRef(pod *v1.Pod) []metav1.OwnerReference {
+	return pod.ObjectMeta.GetOwnerReferences()
 }
 
 func IsBestEffortPod(pod *v1.Pod) bool {
@@ -89,37 +147,26 @@ func IsGuaranteedPod(pod *v1.Pod) bool {
 	return utils.GetPodQOS(pod) == v1.PodQOSGuaranteed
 }
 
-func IsDaemonsetPod(ownerRefList []metav1.OwnerReference) bool {
-	for _, ownerRef := range ownerRefList {
-		if ownerRef.Kind == "DaemonSet" {
+// SortPodsBasedOnPriorityLowToHigh sorts pods based on their priorities from low to high.
+// If pods have same priorities, they will be sorted by QoS in the following order:
+// BestEffort, Burstable, Guaranteed
+func SortPodsBasedOnPriorityLowToHigh(pods []*v1.Pod) {
+	sort.Slice(pods, func(i, j int) bool {
+		if pods[i].Spec.Priority == nil && pods[j].Spec.Priority != nil {
 			return true
 		}
-	}
-	return false
-}
-
-// IsMirrorPod checks whether the pod is a mirror pod.
-func IsMirrorPod(pod *v1.Pod) bool {
-	return utils.IsMirrorPod(pod)
-}
-
-// HaveEvictAnnotation checks if the pod have evict annotation
-func HaveEvictAnnotation(pod *v1.Pod) bool {
-	_, found := pod.ObjectMeta.Annotations[evictPodAnnotationKey]
-	return found
-}
-
-func IsPodWithLocalStorage(pod *v1.Pod) bool {
-	for _, volume := range pod.Spec.Volumes {
-		if volume.HostPath != nil || volume.EmptyDir != nil {
-			return true
+		if pods[j].Spec.Priority == nil && pods[i].Spec.Priority != nil {
+			return false
 		}
-	}
-
-	return false
-}
-
-// OwnerRef returns the ownerRefList for the pod.
-func OwnerRef(pod *v1.Pod) []metav1.OwnerReference {
-	return pod.ObjectMeta.GetOwnerReferences()
+		if (pods[j].Spec.Priority == nil && pods[i].Spec.Priority == nil) || (*pods[i].Spec.Priority == *pods[j].Spec.Priority) {
+			if IsBestEffortPod(pods[i]) {
+				return true
+			}
+			if IsBurstablePod(pods[i]) && IsGuaranteedPod(pods[j]) {
+				return true
+			}
+			return false
+		}
+		return *pods[i].Spec.Priority < *pods[j].Spec.Priority
+	})
 }

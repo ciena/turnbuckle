@@ -17,40 +17,35 @@ limitations under the License.
 package node
 
 import (
-	"time"
+	"context"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/descheduler/pkg/utils"
 )
 
 // ReadyNodes returns ready nodes irrespective of whether they are
 // schedulable or not.
-func ReadyNodes(client clientset.Interface, nodeSelector string, stopChannel <-chan struct{}) ([]*v1.Node, error) {
+func ReadyNodes(ctx context.Context, client clientset.Interface, nodeInformer coreinformers.NodeInformer, nodeSelector string, stopChannel <-chan struct{}) ([]*v1.Node, error) {
 	ns, err := labels.Parse(nodeSelector)
 	if err != nil {
 		return []*v1.Node{}, err
 	}
 
 	var nodes []*v1.Node
-	nl := GetNodeLister(client, stopChannel)
-	if nl != nil {
-		// err is defined above
-		if nodes, err = nl.List(ns); err != nil {
-			return []*v1.Node{}, err
-		}
+	// err is defined above
+	if nodes, err = nodeInformer.Lister().List(ns); err != nil {
+		return []*v1.Node{}, err
 	}
 
 	if len(nodes) == 0 {
-		klog.V(2).Infof("node lister returned empty list, now fetch directly")
+		klog.V(2).InfoS("Node lister returned empty list, now fetch directly")
 
-		nItems, err := client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: nodeSelector})
+		nItems, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: nodeSelector})
 		if err != nil {
 			return []*v1.Node{}, err
 		}
@@ -74,22 +69,6 @@ func ReadyNodes(client clientset.Interface, nodeSelector string, stopChannel <-c
 	return readyNodes, nil
 }
 
-func GetNodeLister(client clientset.Interface, stopChannel <-chan struct{}) corelisters.NodeLister {
-	if stopChannel == nil {
-		return nil
-	}
-	listWatcher := cache.NewListWatchFromClient(client.CoreV1().RESTClient(), "nodes", v1.NamespaceAll, fields.Everything())
-	store := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	nodeLister := corelisters.NewNodeLister(store)
-	reflector := cache.NewReflector(listWatcher, &v1.Node{}, store, time.Hour)
-	go reflector.Run(stopChannel)
-
-	// To give some time so that listing works, chosen randomly
-	time.Sleep(100 * time.Millisecond)
-
-	return nodeLister
-}
-
 // IsReady checks if the descheduler could run against given node.
 func IsReady(node *v1.Node) bool {
 	for i := range node.Status.Conditions {
@@ -99,19 +78,19 @@ func IsReady(node *v1.Node) bool {
 		// - NodeOutOfDisk condition status is ConditionFalse,
 		// - NodeNetworkUnavailable condition status is ConditionFalse.
 		if cond.Type == v1.NodeReady && cond.Status != v1.ConditionTrue {
-			klog.V(1).Infof("Ignoring node %v with %v condition status %v", node.Name, cond.Type, cond.Status)
+			klog.V(1).InfoS("Ignoring node", "node", klog.KObj(node), "condition", cond.Type, "status", cond.Status)
 			return false
 		} /*else if cond.Type == v1.NodeOutOfDisk && cond.Status != v1.ConditionFalse {
-			klog.V(4).Infof("Ignoring node %v with %v condition status %v", node.Name, cond.Type, cond.Status)
+			klog.V(4).InfoS("Ignoring node with condition status", "node", klog.KObj(node.Name), "condition", cond.Type, "status", cond.Status)
 			return false
 		} else if cond.Type == v1.NodeNetworkUnavailable && cond.Status != v1.ConditionFalse {
-			klog.V(4).Infof("Ignoring node %v with %v condition status %v", node.Name, cond.Type, cond.Status)
+			klog.V(4).InfoS("Ignoring node with condition status", "node", klog.KObj(node.Name), "condition", cond.Type, "status", cond.Status)
 			return false
 		}*/
 	}
 	// Ignore nodes that are marked unschedulable
 	/*if node.Spec.Unschedulable {
-		klog.V(4).Infof("Ignoring node %v since it is unschedulable", node.Name)
+		klog.V(4).InfoS("Ignoring node since it is unschedulable", "node", klog.KObj(node.Name))
 		return false
 	}*/
 	return true
@@ -133,12 +112,9 @@ func PodFitsAnyNode(pod *v1.Pod, nodes []*v1.Node) bool {
 		if err != nil || !ok {
 			continue
 		}
-		if ok {
-			if !IsNodeUnschedulable(node) {
-				klog.V(2).Infof("Pod %v can possibly be scheduled on %v", pod.Name, node.Name)
-				return true
-			}
-			return false
+		if !IsNodeUnschedulable(node) {
+			klog.V(2).InfoS("Pod can possibly be scheduled on a different node", "pod", klog.KObj(pod), "node", klog.KObj(node))
+			return true
 		}
 	}
 	return false
@@ -150,15 +126,15 @@ func PodFitsCurrentNode(pod *v1.Pod, node *v1.Node) bool {
 	ok, err := utils.PodMatchNodeSelector(pod, node)
 
 	if err != nil {
-		klog.Error(err)
+		klog.ErrorS(err, "Failed to match node selector")
 		return false
 	}
 
 	if !ok {
-		klog.V(1).Infof("Pod %v does not fit on node %v", pod.Name, node.Name)
+		klog.V(2).InfoS("Pod does not fit on node", "pod", klog.KObj(pod), "node", klog.KObj(node))
 		return false
 	}
 
-	klog.V(3).Infof("Pod %v fits on node %v", pod.Name, node.Name)
+	klog.V(2).InfoS("Pod fits on node", "pod", klog.KObj(pod), "node", klog.KObj(node))
 	return true
 }

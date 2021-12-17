@@ -134,8 +134,13 @@ test: manifests generate fmt vet envtest ## Run tests.
 build: build-manager build-scheduler
 
 .PHONY: build-%
-build-%: generate protos fmt vet
+build-%: deps-% fmt vet
+	@echo "Building $*"
 	go build -o bin/$* $(LDFLAGS) ./cmd/$*
+
+deps-manager: generate protos
+
+deps-scheduler: protos
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
