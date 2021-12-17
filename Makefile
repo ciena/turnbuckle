@@ -165,8 +165,14 @@ apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
 		--go_out=plugins=grpc:. \
 		$<
 
+apis/underlay/underlay.pb.go: apis/underlay.proto
+	protoc \
+		-I ./apis \
+		--go_out=plugins=grpc:. \
+		$<
+
 .PHONY: protos ## Generate Go code from the protocol buffer definitions
-protos: apis/ruleprovider/ruleprovider.pb.go
+protos: apis/ruleprovider/ruleprovider.pb.go apis/underlay/underlay.pb.go
 
 .PHONY: clean
 clean: ## Delete build and/or temporary artifacts
