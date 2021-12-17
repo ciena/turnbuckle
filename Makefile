@@ -131,8 +131,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: generate protos fmt vet ## Build manager binary.
-	go build -o bin/manager $(LDFLAGS) ./cmd/manager
+build: build-manager build-scheduler
+
+.PHONY: build-%
+build-%: generate protos fmt vet
+	go build -o bin/$* $(LDFLAGS) ./cmd/$*
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

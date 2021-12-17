@@ -8,14 +8,14 @@ import (
 
 	"github.com/ciena/turnbuckle/apis/ruleprovider"
 	graph "github.com/ciena/turnbuckle/internal/pkg/graph"
-	"github.com/ciena/turnbuckle/internal/pkg/types"
+	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type RuleProvider interface {
-	EndpointCost(src types.Endpoint, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error)
+	EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error)
 }
 
 type ruleProvider struct {
@@ -24,7 +24,7 @@ type ruleProvider struct {
 	Service     corev1.Service
 }
 
-func (p *ruleProvider) EndpointCost(src types.Endpoint, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error) {
+func (p *ruleProvider) EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error) {
 	var gopts []grpc.DialOption
 	p.Log.V(1).Info("endpointcost", "namespace", p.Service.Namespace, "name", p.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:5309", p.Service.Name, p.Service.Namespace)
@@ -40,7 +40,13 @@ func (p *ruleProvider) EndpointCost(src types.Endpoint, eligibleNodes []string, 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	source := types.ToRuleProvider(src)
+	source := ruleprovider.Target{
+		Cluster:    src.Cluster,
+		Kind:       src.Kind,
+		ApiVersion: src.APIVersion,
+		Name:       src.Name,
+		Namespace:  src.Namespace,
+	}
 	req := ruleprovider.EndpointCostRequest{
 		Source:        &source,
 		EligibleNodes: eligibleNodes,

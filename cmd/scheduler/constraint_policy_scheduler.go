@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"

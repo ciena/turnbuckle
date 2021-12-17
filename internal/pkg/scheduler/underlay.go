@@ -21,7 +21,7 @@ type nodeOffer struct {
 }
 
 type UnderlayController interface {
-	Discover(eligibleNodes []string, peerNodes []string, rules []constraintv1alpha1.ConstraintPolicyRule) ([]nodeOffer, error)
+	Discover(eligibleNodes []string, peerNodes []string, rules []*constraintv1alpha1.ConstraintPolicyRule) ([]nodeOffer, error)
 	Allocate(pathId string) error
 	Release(pathId string) error
 }
@@ -31,7 +31,7 @@ type underlayController struct {
 	Service corev1.Service
 }
 
-func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string, rules []constraintv1alpha1.ConstraintPolicyRule) ([]nodeOffer, error) {
+func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string, rules []*constraintv1alpha1.ConstraintPolicyRule) ([]nodeOffer, error) {
 	var gopts []grpc.DialOption
 	c.Log.V(1).Info("discover", "namespace", c.Service.Namespace, "name", c.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:9999", c.Service.Name, c.Service.Namespace)
