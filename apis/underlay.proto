@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package underlay;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "apis/underlay";
+option java_package = "github.com/turnbuckle/underlay";
+
+// Given a starting point of Node X, which of the following Nodes can you make
+//    compliant with the rules A, B, C, ...
+
+// Given Nodes X, Y can you make the connection between them compliant with
+//    rules A, B, C, ...
+
+// Given Nodes W, X, Y, Z, which pairs of Nodes can you make a connection between
+//    that is compliant with rules A, B, C, ...
+
+message Target {
+    string cluster = 1;
+    string namespace = 2;
+    string apiVersion = 3;
+    string kind = 4;
+    string name = 5;
+}
+
+message NodeRef {
+    string cluster = 1;
+    string name = 2;
+}
+
+message PolicyRule {
+}
+
+message DiscoverRequest {
+    repeated PolicyRule rules = 1;
+    repeated string peerNodes = 2;
+    repeated string eligibleNodes = 3;
+}
+
+message DiscoverResponse {
+    repeated Offer offers = 1;
+}
+
+message Offer {
+    string id = 1;
+    NodeRef node = 2;
+    int64 cost = 3;
+    google.protobuf.Timestamp expires = 4;
+}
+
+message AllocateRequest {
+    string id = 1;
+}
+
+message AllocateResponse {
+}
+
+message ReleaseRequest {
+    string id = 1;
+}
+
+message MitigateRequest {
+    repeated string id = 1;
+    NodeRef src = 2;
+    NodeRef peer = 3;
+    repeated PolicyRule rules = 4;
+}
+
+message MitigateResponse {
+    string id = 1;
+}
+
+service UnderlayController {
+    rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+    rpc Allocate(AllocateRequest) returns (AllocateResponse);
+    rpc Release(ReleaseRequest) returns (google.protobuf.Empty);
+    rpc Mitigate(MitigateRequest) returns (MitigateResponse);
+}
+
