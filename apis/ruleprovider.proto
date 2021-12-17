@@ -42,6 +42,23 @@ message EvaluateResponse {
     string reason = 2;
 }
 
+message NodeCost {
+	string node = 1;
+	int64 cost = 2;
+}
+
+message EndpointCostResponse {
+	repeated NodeCost nodeAndCost = 1;
+}
+
+message EndpointCostRequest {
+	Target source = 1;
+	PolicyRule rule = 2;
+	repeated string peerNodes = 3;
+	repeated string eligibleNodes = 4;
+}
+
 service RuleProvider {
     rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+    rpc EndpointCost(EndpointCostRequest) returns (EndpointCostResponse);
 }

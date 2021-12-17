@@ -146,8 +146,9 @@ docker-build: test ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${MANAGER_IMG}
 
+
 ifeq (,$(shell which protoc 2>/dev/null))
-	$(error Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
+	$(warn Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
 endif
 
 apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
