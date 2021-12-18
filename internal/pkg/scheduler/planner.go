@@ -300,7 +300,7 @@ func (s *ConstraintPolicySchedulerPlanner) releaseUnderlayPath(pod *v1.Pod) erro
 		return nil
 	}
 	// check for finalizers if any to release underlay path
-	finalizerPrefix := "constraint.ciena.io/remove-underlay_"
+	finalizerPrefix := "constraint.ciena.com/remove-underlay_"
 	underlayFinalizers := []string{}
 	newFinalizers := []string{}
 	for _, finalizer := range finalizers {
@@ -520,7 +520,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]const
 
 func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayController, error) {
 	svcs, err := s.clientset.CoreV1().Services("").List(context.Background(),
-		metav1.ListOptions{LabelSelector: "constraint.ciena.io/underlay-controller"})
+		metav1.ListOptions{LabelSelector: "constraint.ciena.com/underlay-controller"})
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +535,7 @@ func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayC
 
 func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(name, namespace string) (RuleProvider, error) {
 	svcs, err := s.clientset.CoreV1().Services("").List(context.Background(),
-		metav1.ListOptions{LabelSelector: fmt.Sprintf("constraint.ciena.io/provider-%s", name)})
+		metav1.ListOptions{LabelSelector: fmt.Sprintf("constraint.ciena.com/provider-%s", name)})
 	if err != nil {
 		return nil, err
 	}
@@ -1043,7 +1043,7 @@ func (s *ConstraintPolicySchedulerPlanner) updateWorker() {
 }
 
 func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(pod *v1.Pod, pathId string) error {
-	podFinalizer := "constraint.ciena.io/remove-underlay_" + pathId
+	podFinalizer := "constraint.ciena.com/remove-underlay_" + pathId
 	for _, finalizer := range pod.ObjectMeta.Finalizers {
 		if finalizer == podFinalizer {
 			// already exists
