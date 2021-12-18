@@ -22,6 +22,8 @@ import threading
 from apis import ruleprovider_pb2_grpc
 from apis import ruleprovider_pb2
 import logging
+import random
+import time
 from grpc_reflection.v1alpha import reflection
 from kubernetes import client as k8s_client, config as k8s_config
 
@@ -106,8 +108,17 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
             logging.error("unable to query rule providers: {}".format(ex))
             return ruleprovider_pb2.EvaluationResponse(compliance='Compliant',
                                                        reason='unable to access k8s API')
+    def EndpointCost(self, request, context):
+        logging.getLogger()
+        nc = []
+        for node in request.eligibleNodes:
+            cost = random.randint(1, 10000)
+            nc.append(ruleprovider_pb2.NodeCost(node=node, cost=cost))
+            logger.debug('node {}, assigned cost {}'.format(node, cost))
 
+        return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
 
+random.seed(time.time())
 logging.getLogger()
 server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 ruleprovider_pb2_grpc.add_RuleProviderServicer_to_server(
