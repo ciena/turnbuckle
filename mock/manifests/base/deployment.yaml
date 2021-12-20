@@ -15,20 +15,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mock-controller
+  name: mock-manager
+  namespace: default
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: mock-controller
+      app: mock-manager
   template:
     metadata:
       labels:
-        app: mock-controller
+        app: mock-manager
     spec:
+      serviceAccountName: mock-manager
       containers:
-      - name: mock
-        image: mock
-        imagePullPolicy: Always
+        - name: mock
+          image: mock
+          imagePullPolicy: IfNotPresent

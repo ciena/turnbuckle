@@ -19,7 +19,11 @@ VERSION=$(shell head -1 ./VERSION)
 DOCKER_REGISTRY ?= dockerhub.com
 DOCKER_TAG ?= $(VERSION)
 DOCKER_MANAGER_REPOSITORY ?= constraint-policy-manager
+ifeq ($(DOCKER_REGISTRY),)
+MANAGER_IMG ?= $(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
+else
 MANAGER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
+endif
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
 
