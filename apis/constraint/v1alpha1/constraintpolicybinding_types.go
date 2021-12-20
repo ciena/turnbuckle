@@ -101,6 +101,8 @@ type ConstraintPolicyBindingStatus struct {
 //+kubebuilder:printcolumn:name="LastMitigation",type="date",JSONPath=".status.lastMitigatedTimestamp",priority=1
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
 //+kubebuilder:printcolumn:name="Targets",type="string",JSONPath=".spec.targets",priority=1
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 
 // ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
 //+genclient.

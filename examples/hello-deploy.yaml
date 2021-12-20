@@ -29,7 +29,7 @@ spec:
       labels:
         app: hello-server
     spec:
-#     schedulerName: connect-policy-scheduler
+      schedulerName: constraint-policy-scheduler
       containers:
         - name: server
           image: ciena/grpc-hello-server:0.1.0
@@ -54,7 +54,7 @@ spec:
       labels:
         app: hello-client
     spec:
-#     schedulerName: connect-policy-scheduler
+      schedulerName: constraint-policy-scheduler
       containers:
         - name: client
           image: ciena/grpc-hello-client:0.1.0
@@ -81,7 +81,7 @@ spec:
       labels:
         app: hello-monitor
     spec:
-#     schedulerName: connect-policy-scheduler
+      schedulerName: constraint-policy-scheduler
       containers:
         - name: monitor
           image: ciena/grpc-hello-client:0.1.0

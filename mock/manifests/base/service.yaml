@@ -3,11 +3,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mock-provider
+  namespace: default
 spec:
   ports:
     - port: 5309
       protocol: TCP
       targetPort: 5309
   selector:
-    app: mock-controller
+    app: mock-manager
   type: ClusterIP

@@ -19,7 +19,12 @@ VERSION=$(shell head -1 ../VERSION)
 DOCKER_REGISTRY ?= dockerhub.com
 DOCKER_TAG ?= $(VERSION)
 DOCKER_MANAGER_REPOSITORY ?= rule-provider-mock
+
+ifeq ($(DOCKER_REGISTRY),)
+IMG ?= $(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
+else
 IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
+endif
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
@@ -90,20 +95,33 @@ uninstall:  ## Uninstall the rule provider mock CRD from the K8s cluster specifi
 	kubectl delete --ignore-not-found --wait -f ./apis/ruleprovider_crd.yaml
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd manifests/deploy && kustomize edit set image mock=${IMG}
-	kustomize build manifests/deploy | kubectl apply --wait -f -
+deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd manifests/deploy && $(KUSTOMIZE)  edit set image mock=${IMG}
+	$(KUSTOMIZE)  build manifests/deploy | kubectl apply --wait -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from th K8s cluster specified in ~/.kube/config.
-	kustomize build manifests/deploy | kubectl delete --ignore-not-found --wait -f -
+	$(KUSTOMIZE)  build manifests/deploy | kubectl delete --ignore-not-found --wait -f -
 
 .PHONY: tail-log
 tail-log: ## tail the log of the controller
 	kubectl logs -f deploy/mock-controller
 
-
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 .PHONY: kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
