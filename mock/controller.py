@@ -114,7 +114,7 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
         for node in request.eligibleNodes:
             cost = random.randint(1, 10000)
             nc.append(ruleprovider_pb2.NodeCost(node=node, cost=cost))
-            logger.debug('node {}, assigned cost {}'.format(node, cost))
+            logging.debug('node {}, assigned cost {}'.format(node, cost))
 
         return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
 
