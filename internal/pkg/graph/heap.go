@@ -6,6 +6,7 @@ type prioQueue struct {
 	lessFn func(n1, n2 string) bool
 }
 
+// create a priority queue with a set of nodes
 func NewPrioQueue(nodes []string, less func(n1, n2 string) bool) *prioQueue {
 	heap := make([]string, len(nodes))
 	index := make(map[string]int)
@@ -16,15 +17,18 @@ func NewPrioQueue(nodes []string, less func(n1, n2 string) bool) *prioQueue {
 	return &prioQueue{heap: heap, index: index, lessFn: less}
 }
 
+// create an empty priority queue
 func EmptyPrioQueue(less func(n1, n2 string) bool) *prioQueue {
 	index := make(map[string]int)
 	return &prioQueue{index: index, lessFn: less}
 }
 
+// get the length of the priority queue
 func (p *prioQueue) Len() int {
 	return len(p.heap)
 }
 
+// push a node into the priority queue
 func (p *prioQueue) Push(node string) {
 	n := p.Len()
 	p.heap = append(p.heap, node)
@@ -32,6 +36,7 @@ func (p *prioQueue) Push(node string) {
 	p.up(n)
 }
 
+// pop a node from the priority queue
 func (p *prioQueue) Pop() string {
 	n := p.Len() - 1
 	p.swap(0, n)
@@ -52,6 +57,7 @@ func (p *prioQueue) swap(i, j int) {
 	p.index[p.heap[j]] = j
 }
 
+// check if node is part of the priority queue
 func (p *prioQueue) Contains(node string) bool {
 	if _, ok := p.index[node]; !ok {
 		return false

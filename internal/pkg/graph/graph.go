@@ -57,6 +57,7 @@ func (g *Graph) AddNode(node string) {
 	}
 }
 
+// add a cost for neighbor with graph lock held
 func (g *Graph) AddCostWithLock(vertex string, neighbor string, cost int64) {
 	if _, ok := g.edges[vertex]; !ok {
 		g.edges[vertex] = make(map[string]int64)
@@ -65,12 +66,14 @@ func (g *Graph) AddCostWithLock(vertex string, neighbor string, cost int64) {
 	g.edges[vertex][neighbor] = cost
 }
 
+// add a neighbor to vertex with cost
 func (g *Graph) AddCost(vertex string, neighbor string, cost int64) {
 	g.Lock()
 	defer g.Unlock()
 	g.AddCostWithLock(vertex, neighbor, cost)
 }
 
+// add a cost from vertex to neighbor in both directions
 func (g *Graph) AddCostBoth(vertex string, neighbor string, cost int64) {
 	g.Lock()
 	defer g.Unlock()
@@ -78,6 +81,7 @@ func (g *Graph) AddCostBoth(vertex string, neighbor string, cost int64) {
 	g.AddCostWithLock(neighbor, vertex, cost)
 }
 
+// remove a neighbor from the graph
 func (g *Graph) Remove(vertex string, neighbor string) {
 	g.Lock()
 	defer g.Unlock()
@@ -86,6 +90,7 @@ func (g *Graph) Remove(vertex string, neighbor string) {
 	}
 }
 
+// find the shortest path from node to neighbor
 func (g *Graph) ShortestPath(node string, neighbor string, cost int64) (path []string, dist int64, err error) {
 	path = []string{}
 	g.Lock()
@@ -124,6 +129,7 @@ func (g *Graph) BFSWithLock(vertex string, do func(v, w string, c int64)) {
 	}
 }
 
+// breadth-first order traversal calling do function for every unvisited vertex w
 func (g *Graph) BFS(vertex string, do func(v, w string, c int64)) {
 	g.Lock()
 	defer g.Unlock()
@@ -143,12 +149,14 @@ func (g *Graph) dfsVisit(vertex string, visitedMap map[string]struct{}, do func(
 	})
 }
 
+// depth first traversal
 func (g *Graph) DFSWithLock(vertex string, do func(v, w string, c int64)) {
 	visitedMap := make(map[string]struct{})
 	visitedMap[vertex] = struct{}{}
 	g.dfsVisit(vertex, visitedMap, do)
 }
 
+// depth first traversal.
 func (g *Graph) DFS(vertex string, do func(v, w string, c int64)) {
 	g.Lock()
 	defer g.Unlock()
@@ -365,7 +373,8 @@ func (g *Graph) GetNodeWithNeighborsAndCandidates(neighbors []string, candidateN
 	return g.GetNodeWithNeighborsAndCandidatesFilter(neighbors, candidateNodes, nil)
 }
 
-func (g *Graph) GetNodeWithNeighborsFilter(neighbors []string, applyFilter func(nodeName string) bool) (*NodePeerCost, error) {
+func (g *Graph) GetNodeWithNeighborsFilter(neighbors []string,
+	applyFilter func(nodeName string) bool) (*NodePeerCost, error) {
 	return g.GetNodeWithNeighborsAndCandidatesFilter(neighbors, g.nodes, applyFilter)
 }
 
