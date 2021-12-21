@@ -18,12 +18,13 @@ package types
 
 import (
 	"fmt"
-	"github.com/ciena/turnbuckle/apis/ruleprovider"
 	"regexp"
 	"strings"
+
+	"github.com/ciena/turnbuckle/apis/ruleprovider"
 )
 
-// Endpoint a concreate end point reference
+// Endpoint a concreate end point reference.
 type Endpoint struct {
 	Cluster   string
 	Namespace string
@@ -63,13 +64,13 @@ func (ep Endpoint) String() string {
 var endpointRE = regexp.MustCompile(`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`)
 
 // ParseEndpoint parses a string representation of an endpoint
-// to a Endpoint
+// to a Endpoint.
 func ParseEndpoint(in string) (*Endpoint, error) {
 	var ep Endpoint
 
 	parts := endpointRE.FindStringSubmatch(in)
 
-	//fmt.Printf("%+#v\n", parts)
+	// fmt.Printf("%+#v\n", parts)
 	if len(parts) == 0 {
 		return nil, fmt.Errorf(`invalid endpoint "%s"`, in)
 	}

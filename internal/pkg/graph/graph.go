@@ -2,10 +2,11 @@ package graph
 
 import (
 	"fmt"
-	"github.com/go-logr/logr"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 type Graph struct {
@@ -46,7 +47,7 @@ func (g *Graph) GetNodes() []string {
 	return g.GetNodesWithLock()
 }
 
-//just add a node edge with no neighbor
+// just add a node edge with no neighbor.
 func (g *Graph) AddNode(node string) {
 	g.Lock()
 	defer g.Unlock()
@@ -104,7 +105,7 @@ func (g *Graph) ShortestPath(node string, neighbor string, cost int64) (path []s
 	return
 }
 
-// breadth-first order traversal calling do function for every unvisited vertex w
+// breadth-first order traversal calling do function for every unvisited vertex w.
 func (g *Graph) BFSWithLock(vertex string, do func(v, w string, c int64)) {
 	visited := make(map[string]struct{})
 	visited[vertex] = struct{}{}
@@ -129,7 +130,7 @@ func (g *Graph) BFS(vertex string, do func(v, w string, c int64)) {
 	g.BFSWithLock(vertex, do)
 }
 
-// depth first traversal
+// depth first traversal.
 func (g *Graph) dfsVisit(vertex string, visitedMap map[string]struct{}, do func(v, w string, c int64)) {
 	g.VisitWithLock(vertex, func(w string, c int64) (skip bool) {
 		if _, ok := visitedMap[w]; ok {
@@ -190,7 +191,7 @@ func (g *Graph) ShortestPathsWithLock(node string, request int64) (parents map[s
 				dist[w] = w_cost
 				q.Push(w)
 			} else {
-				//fix if new cost < current cost
+				// fix if new cost < current cost
 				new_graded_cost := request - w_cost
 				if new_graded_cost < 0 {
 					new_graded_cost = -new_graded_cost
@@ -242,7 +243,7 @@ func (g *Graph) Visit(vertex string, do func(w string, c int64) bool) bool {
 	return g.VisitWithLock(vertex, do)
 }
 
-// expected to be called with lock held
+// expected to be called with lock held.
 func (g *Graph) Degree(vertex string) int {
 	if _, ok := g.edges[vertex]; ok {
 		return len(g.edges[vertex])
@@ -268,17 +269,17 @@ func (g *Graph) GetCost(vertex, neighbor string) (int64, error) {
 	return g.GetCostWithLock(vertex, neighbor)
 }
 
-// expected to be called with lock held
+// expected to be called with lock held.
 func (g *Graph) Order() int {
 	return len(g.nodes)
 }
 
 // if cost is <= request, add candidate map
-// we add the nodes by the one that fits the following critera
+// we add the nodes by the one that fits the following criteria
 // request <= avail <= limit
 // if the cost is < request, we take the one that is closest to request
 // or min(request-avail)
-// So we build the nodeandcost list and sort it with the graded cost in the map
+// So we build the nodeandcost list and sort it with the graded cost in the map.
 func (g *Graph) findNodeFromCandidatesFilter(candidates map[string]NodeAndCost, applyFilter func(nodeName string) bool) *NodePeerCost {
 	if len(candidates) == 0 {
 		return nil
@@ -299,7 +300,7 @@ func (g *Graph) findNodeFromCandidatesFilter(candidates map[string]NodeAndCost, 
 	return nil
 }
 
-// euclidean distance
+// euclidean distance.
 func ComputeNodeCost(durations ...time.Duration) time.Duration {
 	durationPairs := len(durations) / 2
 	var sigma time.Duration
@@ -359,7 +360,7 @@ func (g *Graph) GetNodeWithNeighborsAndCandidatesFilter(neighbors []string, cand
 	return nil, fmt.Errorf("Did not find any node from nodes %s for pod", neighbors)
 }
 
-// start the search for node using neighbor nodes as vertices
+// start the search for node using neighbor nodes as vertices.
 func (g *Graph) GetNodeWithNeighborsAndCandidates(neighbors []string, candidateNodes []string) (*NodePeerCost, error) {
 	return g.GetNodeWithNeighborsAndCandidatesFilter(neighbors, candidateNodes, nil)
 }
@@ -372,7 +373,7 @@ func (g *Graph) GetNodeWithNeighbors(neighbors []string) (*NodePeerCost, error) 
 	return g.GetNodeWithNeighborsAndCandidatesFilter(neighbors, g.nodes, nil)
 }
 
-//find the best node
+// find the best node.
 func (g *Graph) GetNode() (*NodePeerCost, error) {
 	return g.GetNodeWithNeighbors(g.nodes)
 }

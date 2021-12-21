@@ -2,6 +2,7 @@ package podpredicates
 
 import (
 	"context"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -9,7 +10,7 @@ import (
 	"sigs.k8s.io/descheduler/pkg/utils"
 )
 
-// check if a given pod has anti-affinity with an existing pod on the given node
+// check if a given pod has anti-affinity with an existing pod on the given node.
 func PodCheckAntiAffinity(client clientset.Interface, pod *v1.Pod, node *v1.Node) (bool, error) {
 	pods, err := podutil.ListPodsOnANode(context.TODO(), client, node)
 	if err != nil {

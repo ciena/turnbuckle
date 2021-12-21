@@ -18,22 +18,22 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"time"
+
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/ciena/turnbuckle/internal/pkg/scheduler"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"net/http"
-	"os"
-	"time"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -67,11 +67,11 @@ func k8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	var err error
 	if kubeconfig == "" {
 		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to load in cluster config: %w", err)
 		}
 	} else {
 		if config, err = clientcmd.BuildConfigFromFlags("", kubeconfig); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to specified kubeconfig: %w", err)
 		}
 	}
 

@@ -2,11 +2,14 @@ package podpredicates
 
 import (
 	"fmt"
-	"k8s.io/api/core/v1"
+	"strings"
+
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/component-base/featuregate"
-	"strings"
 )
 
 const (
@@ -14,7 +17,7 @@ const (
 	//
 	// // owner: @username
 	// // alpha: v1.X
-	// MyFeature featuregate.Feature = "MyFeature"
+	// MyFeature featuregate.Feature = "MyFeature".
 
 	// owner: @tallclair
 	// beta: v1.4
@@ -36,7 +39,7 @@ const (
 	// owner: @jiayingz
 	// beta: v1.10
 	//
-	// Enables support for Device Plugins
+	// Enables support for Device Plugins.
 	DevicePlugins featuregate.Feature = "DevicePlugins"
 
 	// owner: @dxist
@@ -72,12 +75,12 @@ const (
 	// owner: @jinxu
 	// beta: v1.10
 	//
-	// New local storage types to support local storage capacity isolation
+	// New local storage types to support local storage capacity isolation.
 	LocalStorageCapacityIsolation featuregate.Feature = "LocalStorageCapacityIsolation"
 
 	// owner: @gnufied
 	// beta: v1.11
-	// Ability to Expand persistent volumes
+	// Ability to Expand persistent volumes.
 	ExpandPersistentVolumes featuregate.Feature = "ExpandPersistentVolumes"
 
 	// owner: @mlmhl
@@ -88,7 +91,7 @@ const (
 	// owner: @gnufied
 	// alpha: v1.14
 	// beta: v1.16
-	// Ability to expand CSI volumes
+	// Ability to expand CSI volumes.
 	ExpandCSIVolumes featuregate.Feature = "ExpandCSIVolumes"
 
 	// owner: @verb
@@ -109,7 +112,7 @@ const (
 	// alpha: v1.11
 	//
 	// Allows resource reservations at the QoS level preventing pods at lower QoS levels from
-	// bursting into resources requested at higher QoS levels (memory only for now)
+	// bursting into resources requested at higher QoS levels (memory only for now).
 	QOSReserved featuregate.Feature = "QOSReserved"
 
 	// owner: @ConnorDoyle
@@ -122,20 +125,20 @@ const (
 	// owner: @szuecs
 	// alpha: v1.12
 	//
-	// Enable nodes to change CPUCFSQuotaPeriod
+	// Enable nodes to change CPUCFSQuotaPeriod.
 	CPUCFSQuotaPeriod featuregate.Feature = "CustomCPUCFSQuotaPeriod"
 
 	// owner: @lmdaly
 	// alpha: v1.16
 	// beta: v1.18
 	//
-	// Enable resource managers to make NUMA aligned decisions
+	// Enable resource managers to make NUMA aligned decisions.
 	TopologyManager featuregate.Feature = "TopologyManager"
 
 	// owner: @sjenning
 	// beta: v1.11
 	//
-	// Enable pods to set sysctls on a pod
+	// Enable pods to set sysctls on a pod.
 	Sysctls featuregate.Feature = "Sysctls"
 
 	// owner @smarterclayton
@@ -147,27 +150,27 @@ const (
 	// owner @brendandburns
 	// alpha: v1.9
 	//
-	// Enable nodes to exclude themselves from service load balancers
+	// Enable nodes to exclude themselves from service load balancers.
 	ServiceNodeExclusion featuregate.Feature = "ServiceNodeExclusion"
 
 	// owner @smarterclayton
 	// alpha: v1.16
 	//
-	// Enable nodes to exclude themselves from network disruption checks
+	// Enable nodes to exclude themselves from network disruption checks.
 	NodeDisruptionExclusion featuregate.Feature = "NodeDisruptionExclusion"
 
 	// owner: @saad-ali
 	// alpha: v1.12
 	// beta:  v1.14
 	// GA:    v1.18
-	// Enable all logic related to the CSIDriver API object in storage.k8s.io
+	// Enable all logic related to the CSIDriver API object in storage.k8s.io.
 	CSIDriverRegistry featuregate.Feature = "CSIDriverRegistry"
 
 	// owner: @verult
 	// alpha: v1.12
 	// beta:  v1.14
 	// ga:    v1.17
-	// Enable all logic related to the CSINode API object in storage.k8s.io
+	// Enable all logic related to the CSINode API object in storage.k8s.io.
 	CSINodeInfo featuregate.Feature = "CSINodeInfo"
 
 	// owner: @screeley44
@@ -181,32 +184,32 @@ const (
 	// owner: @pospispa
 	// GA: v1.11
 	//
-	// Postpone deletion of a PV or a PVC when they are being used
+	// Postpone deletion of a PV or a PVC when they are being used.
 	StorageObjectInUseProtection featuregate.Feature = "StorageObjectInUseProtection"
 
 	// owner: @aveshagarwal
 	// alpha: v1.9
 	//
-	// Enable resource limits priority function
+	// Enable resource limits priority function.
 	ResourceLimitsPriorityFunction featuregate.Feature = "ResourceLimitsPriorityFunction"
 
 	// owner: @m1093782566
 	// GA: v1.11
 	//
-	// Implement IPVS-based in-cluster service load balancing
+	// Implement IPVS-based in-cluster service load balancing.
 	SupportIPVSProxyMode featuregate.Feature = "SupportIPVSProxyMode"
 
 	// owner: @dims, @derekwaynecarr
 	// alpha: v1.10
 	// beta: v1.14
 	//
-	// Implement support for limiting pids in pods
+	// Implement support for limiting pids in pods.
 	SupportPodPidsLimit featuregate.Feature = "SupportPodPidsLimit"
 
 	// owner: @feiskyer
 	// alpha: v1.10
 	//
-	// Enable Hyper-V containers on Windows
+	// Enable Hyper-V containers on Windows.
 	HyperVContainer featuregate.Feature = "HyperVContainer"
 
 	// owner: @mikedanese
@@ -241,7 +244,7 @@ const (
 	// owner: @Random-Liu
 	// beta: v1.11
 	//
-	// Enable container log rotation for cri container runtime
+	// Enable container log rotation for cri container runtime.
 	CRIContainerLogRotation featuregate.Feature = "CRIContainerLogRotation"
 
 	// owner: @krmayankk
@@ -254,23 +257,23 @@ const (
 	// ga
 	//
 	// Allow mounting a subpath of a volume in a container
-	// Do not remove this feature gate even though it's GA
+	// Do not remove this feature gate even though it's GA.
 	VolumeSubpath featuregate.Feature = "VolumeSubpath"
 
 	// owner: @gnufied
 	// beta : v1.12
-	// GA   : v1.17
+	// GA   : v1.17.
 
 	//
 	// Add support for volume plugins to report node specific
-	// volume limits
+	// volume limits.
 	AttachVolumeLimit featuregate.Feature = "AttachVolumeLimit"
 
 	// owner: @ravig
 	// alpha: v1.11
 	//
 	// Include volume count on node to be considered for balanced resource allocation while scheduling.
-	// A node which has closer cpu,memory utilization and volume count is favoured by scheduler
+	// A node which has closer cpu,memory utilization and volume count is favored by scheduler
 	// while making decisions.
 	BalanceAttachedNodeVolumes featuregate.Feature = "BalanceAttachedNodeVolumes"
 
@@ -280,7 +283,7 @@ const (
 	// ga: v1.17
 	//
 	// Allow subpath environment variable substitution
-	// Only applicable if the VolumeSubpath feature is also enabled
+	// Only applicable if the VolumeSubpath feature is also enabled.
 	VolumeSubpathEnvExpansion featuregate.Feature = "VolumeSubpathEnvExpansion"
 
 	// owner: @vladimirvivien
@@ -288,14 +291,14 @@ const (
 	// beta:  v1.14
 	// ga: 	  v1.18
 	//
-	// Enables CSI to use raw block storage volumes
+	// Enables CSI to use raw block storage volumes.
 	CSIBlockVolume featuregate.Feature = "CSIBlockVolume"
 
 	// owner: @vladimirvivien
 	// alpha: v1.14
 	// beta: v1.16
 	//
-	// Enables CSI Inline volumes support for pods
+	// Enables CSI Inline volumes support for pods.
 	CSIInlineVolume featuregate.Feature = "CSIInlineVolume"
 
 	// owner: @tallclair
@@ -317,7 +320,7 @@ const (
 	// owner: @janosi
 	// alpha: v1.12
 	//
-	// Enables SCTP as new protocol for Service ports, NetworkPolicy, and ContainerPort in Pod/Containers definition
+	// Enables SCTP as new protocol for Service ports, NetworkPolicy, and ContainerPort in Pod/Containers definition.
 	SCTPSupport featuregate.Feature = "SCTPSupport"
 
 	// owner: @xing-yang
@@ -343,7 +346,7 @@ const (
 	// alpha: v1.13
 	// beta: v1.15
 	//
-	// Enables the kubelet's pod resources grpc endpoint
+	// Enables the kubelet's pod resources grpc endpoint.
 	KubeletPodResources featuregate.Feature = "KubeletPodResources"
 
 	// owner: @davidz627
@@ -416,7 +419,7 @@ const (
 	// owner: @RobertKrawitz
 	// beta: v1.15
 	//
-	// Implement support for limiting pids in nodes
+	// Implement support for limiting pids in nodes.
 	SupportNodePidsLimit featuregate.Feature = "SupportNodePidsLimit"
 
 	// owner: @wk8
@@ -474,20 +477,20 @@ const (
 	// beta: v1.16
 	// GA: v1.18
 	//
-	// Enable support for specifying an existing PVC as a DataSource
+	// Enable support for specifying an existing PVC as a DataSource.
 	VolumePVCDataSource featuregate.Feature = "VolumePVCDataSource"
 
 	// owner: @egernst
 	// alpha: v1.16
 	// beta: v1.18
 	//
-	// Enables PodOverhead, for accounting pod overheads which are specific to a given RuntimeClass
+	// Enables PodOverhead, for accounting pod overheads which are specific to a given RuntimeClass.
 	PodOverhead featuregate.Feature = "PodOverhead"
 
 	// owner: @khenidak
 	// alpha: v1.15
 	//
-	// Enables ipv6 dual stack
+	// Enables ipv6 dual stack.
 	IPv6DualStack featuregate.Feature = "IPv6DualStack"
 
 	// owner: @robscott @freehan
@@ -518,20 +521,20 @@ const (
 	// owner: @deads2k
 	// beta: v1.17
 	//
-	// Enables the users to skip TLS verification of kubelets on pod logs requests
+	// Enables the users to skip TLS verification of kubelets on pod logs requests.
 	AllowInsecureBackendProxy featuregate.Feature = "AllowInsecureBackendProxy"
 
 	// owner: @mortent
 	// alpha: v1.3
 	// beta:  v1.5
 	//
-	// Enable all logic related to the PodDisruptionBudget API object in policy
+	// Enable all logic related to the PodDisruptionBudget API object in policy.
 	PodDisruptionBudget featuregate.Feature = "PodDisruptionBudget"
 
 	// owner: @m1093782566
 	// alpha: v1.17
 	//
-	// Enables topology aware service routing
+	// Enables topology aware service routing.
 	ServiceTopology featuregate.Feature = "ServiceTopology"
 
 	// owner: @robscott
@@ -564,13 +567,13 @@ const (
 	// GA: v1.18
 	//
 	// Enable ExternalTrafficPolicy for Service ExternalIPs.
-	// This is for bug fix #69811
+	// This is for bug fix #69811.
 	ExternalPolicyForExternalIP featuregate.Feature = "ExternalPolicyForExternalIP"
 
 	// owner: @bswartz
 	// alpha: v1.18
 	//
-	// Enables usage of any object for volume data source in PVCs
+	// Enables usage of any object for volume data source in PVCs.
 	AnyVolumeDataSource featuregate.Feature = "AnyVolumeDataSource"
 )
 
@@ -590,7 +593,7 @@ func IsAttachableVolumeResourceName(name v1.ResourceName) bool {
 	return strings.HasPrefix(string(name), v1.ResourceAttachableVolumesPrefix)
 }
 
-// Extended and Hugepages resources
+// Extended and Hugepages resources.
 func IsScalarResourceName(name v1.ResourceName) bool {
 	return IsExtendedResourceName(name) || IsHugePageResourceName(name) ||
 		IsPrefixedNativeResource(name) || IsAttachableVolumeResourceName(name)

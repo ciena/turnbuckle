@@ -3,6 +3,10 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -10,9 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 const (
@@ -87,7 +88,7 @@ func (s *ConstraintPolicyScheduler) Stop() {
 	close(s.quit)
 }
 
-// to be used with scheduler extender option
+// to be used with scheduler extender option.
 func (s *ConstraintPolicyScheduler) Start() {
 	go s.listenForPodRequeueEvents()
 }
@@ -181,7 +182,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 	numRequeues := s.podRequeueQueue.NumRequeues(item)
 	if s.options.NumRetriesOnFailure <= 0 || numRequeues <= s.options.NumRetriesOnFailure {
 		forgetItem = false
-		//add back the pod to the podqueue
+		// add back the pod to the podqueue
 		s.log.V(1).Info("pod-requeue-add", "pod", pod.Name, "num-requeues", numRequeues)
 		if s.options.Extender {
 			return true
@@ -204,7 +205,7 @@ func (s *ConstraintPolicyScheduler) requeueWorker() {
 	}
 }
 
-// requeue pod into the worker queue
+// requeue pod into the worker queue.
 func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 	s.podRequeueMutex.Lock()
 	if _, ok := s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
@@ -274,7 +275,7 @@ retry:
 	return nodeInstance, nil
 }
 
-// scheduler extender function to find the best node for the pod
+// scheduler extender function to find the best node for the pod.
 func (s *ConstraintPolicyScheduler) FindBestNodes(pod *v1.Pod, feasibleNodes []v1.Node) ([]v1.Node, error) {
 	if !s.options.Extender {
 		return nil, fmt.Errorf("Extender config not set. Find best nodes failed for pod %s.", pod.Name)

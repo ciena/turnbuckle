@@ -20,42 +20,42 @@ func toJSON(in interface{}) string {
 }
 
 func TestParseEndpoint(t *testing.T) {
-	var vals = []epTestValues{
-		epTestValues{
+	vals := []epTestValues{
+		{
 			String: "name",
 			EP: Endpoint{
 				Name: "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "kind/name",
 			EP: Endpoint{
 				Kind: "kind",
 				Name: "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "namespace:name",
 			EP: Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "name[1.2.3.4]",
 			EP: Endpoint{
 				Name: "name",
 				IP:   "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/:name",
 			EP: Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/namespace:name",
 			EP: Endpoint{
 				Cluster:   "cluster",
@@ -63,7 +63,7 @@ func TestParseEndpoint(t *testing.T) {
 				Name:      "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/:name[1.2.3.4]",
 			EP: Endpoint{
 				Cluster: "cluster",
@@ -71,7 +71,7 @@ func TestParseEndpoint(t *testing.T) {
 				IP:      "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String: "namespace:name[1.2.3.4]",
 			EP: Endpoint{
 				Namespace: "namespace",
@@ -79,22 +79,22 @@ func TestParseEndpoint(t *testing.T) {
 				IP:        "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String:        "",
 			EP:            Endpoint{},
 			ErrorExpected: true,
 		},
-		epTestValues{
+		{
 			String:        "[1.2.3.4]",
 			EP:            Endpoint{},
 			ErrorExpected: true,
 		},
-		epTestValues{
+		{
 			String:        "name[1.a.3.4]",
 			EP:            Endpoint{},
 			ErrorExpected: true,
 		},
-		epTestValues{
+		{
 			String:        "invalid&char",
 			EP:            Endpoint{},
 			ErrorExpected: true,
@@ -123,42 +123,42 @@ func TestParseEndpoint(t *testing.T) {
 }
 
 func TestEndpointString(t *testing.T) {
-	var vals = []epTestValues{
-		epTestValues{
+	vals := []epTestValues{
+		{
 			String: "name",
 			EP: Endpoint{
 				Name: "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "kind/name",
 			EP: Endpoint{
 				Kind: "kind",
 				Name: "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "namespace:name",
 			EP: Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "name[1.2.3.4]",
 			EP: Endpoint{
 				Name: "name",
 				IP:   "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/default:name",
 			EP: Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/namespace:name",
 			EP: Endpoint{
 				Cluster:   "cluster",
@@ -166,7 +166,7 @@ func TestEndpointString(t *testing.T) {
 				Name:      "name",
 			},
 		},
-		epTestValues{
+		{
 			String: "cluster/default:name[1.2.3.4]",
 			EP: Endpoint{
 				Cluster: "cluster",
@@ -174,7 +174,7 @@ func TestEndpointString(t *testing.T) {
 				IP:      "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String: "namespace:name[1.2.3.4]",
 			EP: Endpoint{
 				Namespace: "namespace",
@@ -182,7 +182,7 @@ func TestEndpointString(t *testing.T) {
 				IP:        "1.2.3.4",
 			},
 		},
-		epTestValues{
+		{
 			String: "",
 			EP:     Endpoint{},
 		},

@@ -26,7 +26,7 @@ func decodeExtenderRequest(r *http.Request) (schedulerapi.ExtenderArgs, error) {
 		return args, fmt.Errorf("error %v decoding request", err)
 	}
 	if err := r.Body.Close(); err != nil {
-		return args, err
+		return args, fmt.Errorf("unable to close response body: %w", err)
 	}
 	return args, nil
 }
@@ -83,6 +83,6 @@ func Filter(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 }
 
-//func Prioritize(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {}
+// func Prioritize(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {}
 
 // func Bind(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {}

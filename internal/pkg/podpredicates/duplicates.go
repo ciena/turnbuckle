@@ -2,10 +2,7 @@ package podpredicates
 
 import (
 	"context"
-	v1 "k8s.io/api/core/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"reflect"
-	podutil "sigs.k8s.io/descheduler/pkg/descheduler/pod"
 	"sort"
 	"strings"
 )
@@ -17,7 +14,6 @@ func PodIsADuplicate(
 	client clientset.Interface,
 	pod *v1.Pod,
 	node *v1.Node) (bool, error) {
-
 	pods, err := podutil.ListPodsOnANode(context.TODO(), client, node)
 	if err != nil {
 		return false, err

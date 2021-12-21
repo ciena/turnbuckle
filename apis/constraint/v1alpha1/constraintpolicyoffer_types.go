@@ -115,7 +115,6 @@ type ConstraintPolicyOfferStatus struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 
-
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
 //+genclient.
 type ConstraintPolicyOffer struct {

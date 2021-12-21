@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	graph "github.com/ciena/turnbuckle/internal/pkg/graph"
@@ -19,17 +25,10 @@ import (
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"math/rand"
-	"os"
 	descheduler_nodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
-	"strings"
-	"sync"
-	"time"
 )
 
-var (
-	ErrNoOffersAvailable = fmt.Errorf("no offers available to schedule pods")
-)
+var ErrNoOffersAvailable = fmt.Errorf("no offers available to schedule pods")
 
 type ConstraintPolicySchedulerPlanner struct {
 	options                ConstraintPolicySchedulerPlannerOptions
@@ -75,7 +74,6 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 	addPodCallback func(pod *v1.Pod),
 	updatePodCallback func(old *v1.Pod, new *v1.Pod),
 	deletePodCallback func(pod *v1.Pod)) *ConstraintPolicySchedulerPlanner {
-
 	constraintPolicySchedulerPlanner := &ConstraintPolicySchedulerPlanner{
 		options:                options,
 		clientset:              clientset,
@@ -136,7 +134,6 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 	)
 
 	g, err := initGraphWithNodeLister(constraintPolicySchedulerPlanner.nodeLister, log)
-
 	if err != nil {
 		log.Error(err, "error-initializing-graph")
 		os.Exit(1)
@@ -545,7 +542,8 @@ func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(name, namespace st
 	return &ruleProvider{
 		Log:         s.log.WithName("rule-provider").WithName(name),
 		ProviderFor: name,
-		Service:     svcs.Items[0]}, nil
+		Service:     svcs.Items[0],
+	}, nil
 }
 
 func mergeOfferCost(m1 map[string]int64, m2 map[string]int64) map[string]int64 {
@@ -562,7 +560,7 @@ func mergeNodeCost(m1 map[string][]int64, m2 map[string][]int64) map[string][]in
 	m3 := make(map[string][]int64)
 	for k, v1 := range m1 {
 		if v2, ok := m2[k]; ok {
-			//concat m1[k] and m2[k] values on intersect
+			// concat m1[k] and m2[k] values on intersect
 			m3[k] = append(m3[k], v1...)
 			m3[k] = append(m3[k], v2...)
 		}
@@ -572,9 +570,9 @@ func mergeNodeCost(m1 map[string][]int64, m2 map[string][]int64) map[string][]in
 
 func mergeNodeAllocationCost(m1 map[graph.NodePeerCost]string, m2 map[graph.NodePeerCost]string) map[graph.NodePeerCost]string {
 	m3 := make(map[graph.NodePeerCost]string)
-	for npc, _ := range m1 {
+	for npc := range m1 {
 		if m2_id, ok := m2[npc]; ok {
-			//we can use both as id is in both the lists
+			// we can use both as id is in both the lists
 			m3[npc] = m2_id
 		}
 	}
@@ -768,7 +766,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod, eli
 		} else {
 			peerNodeNames = matchingOffer.peerNodeNames
 		}
-		//we have the aggregate cost of the node to the peers that can be added to the graph (undirected)
+		// we have the aggregate cost of the node to the peers that can be added to the graph (undirected)
 		for n, c := range nodeCostMap {
 			for _, peer := range peerNodeNames {
 				if n != peer {
@@ -875,11 +873,10 @@ func (s *ConstraintPolicySchedulerPlanner) WaitForAllNodesToBeConnected(waitDura
 	}
 }
 
-// to be used with scheduler extender option
+// to be used with scheduler extender option.
 func (s *ConstraintPolicySchedulerPlanner) Start() {
 	go s.listenForNodeEvents()
 	go s.listenForPodUpdateEvents()
-
 }
 
 func (s *ConstraintPolicySchedulerPlanner) listenForNodeEvents() {
@@ -893,7 +890,7 @@ func (s *ConstraintPolicySchedulerPlanner) listenForNodeEvents() {
 	}
 }
 
-// called with constraintpolicymutex held
+// called with constraintpolicymutex held.
 func (s *ConstraintPolicySchedulerPlanner) getPodNode(pod v1.Pod) (string, error) {
 	if node, ok := s.podToNodeMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
 		return "", fmt.Errorf("Cannot find pod %s node", pod.Name)
@@ -902,7 +899,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPodNode(pod v1.Pod) (string, error
 	}
 }
 
-// called with constraintpolicymutex held
+// called with constraintpolicymutex held.
 func (s *ConstraintPolicySchedulerPlanner) setPodNode(pod v1.Pod, nodeName string) {
 	s.podToNodeMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
 }
@@ -919,7 +916,7 @@ func (s *ConstraintPolicySchedulerPlanner) FindFitRandom(pod *v1.Pod, nodes []v1
 }
 
 // Fast version. look up internal cache.
-// look up for the node in the lister cache if pod host ip is not set
+// look up for the node in the lister cache if pod host ip is not set.
 func (s *ConstraintPolicySchedulerPlanner) GetNodeName(pod v1.Pod) (string, error) {
 	if pod.Status.HostIP == "" {
 		return s.getPodNode(pod)
@@ -1117,7 +1114,6 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 				matchedNode = &graph.NodePeerCost{NodeAndCost: graph.NodeAndCost{Node: neighbor, Cost: 0}, Peer: neighbor}
 				break
 			}
-
 		}
 		if matchedNode == nil {
 			s.log.V(1).Info("requeuing-for-retry", "pod", pod.Name)
@@ -1152,7 +1148,7 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 	return nodeInstance, nil
 }
 
-// scheduler extender function to find the best node for the pod
+// scheduler extender function to find the best node for the pod.
 func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNodes []v1.Node) (*v1.Node, error) {
 	var nodeNames []string
 	if len(feasibleNodes) == 0 {

@@ -100,7 +100,7 @@ deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified i
 	$(KUSTOMIZE)  build manifests/deploy | kubectl apply --wait -f -
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from th K8s cluster specified in ~/.kube/config.
+undeploy: kustomize ## Undeploy controller from th K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE)  build manifests/deploy | kubectl delete --ignore-not-found --wait -f -
 
 .PHONY: tail-log

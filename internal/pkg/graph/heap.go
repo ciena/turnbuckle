@@ -59,7 +59,7 @@ func (p *prioQueue) Contains(node string) bool {
 	return true
 }
 
-// fix as the cost of node has changed
+// fix as the cost of node has changed.
 func (p *prioQueue) Fix(node string) {
 	if _, ok := p.index[node]; !ok {
 		return

@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"time"
+
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"time"
 )
 
 var (
@@ -63,7 +64,7 @@ func newConstraintClientForConfig(c *rest.Config) (rest.Interface, error) {
 	}
 	client, err := rest.RESTClientFor(&config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create REST client: %w", err)
 	}
 	return client, nil
 }

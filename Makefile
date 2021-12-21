@@ -25,7 +25,11 @@ MANAGER_IMG ?= $(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
 else
 MANAGER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
 endif
+ifeq ($(DOCKER_REGISTER),)
+SCHEDULER_IMG ?= $(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
+else
 SCHEDULER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
+endif
 SCHEDULER_EXTENDER = false
 SCHEDULER_DEBUG = true
 
@@ -156,27 +160,24 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	go run $(LDFLAGS) ./cmd/manager
 
 .PHONY: docker-build
+docker-build: docker-build-manager docker-build-scheduler ## Build all docker images.
 
-define build-docker-image
-	docker build $1 -t $2 -f $3 $4 .
-endef
+docker-build-manager: ## Build docker image for the constraint policy manager.
+	docker build $(DOCKER_BUILD_FLAGS) -t $(MANAGER_IMG) -f build/Dockerfile.manager $(DOCKER_BUILD_ARGS) .
 
-docker-build: docker-build-manager docker-build-scheduler
-
-.PHONY: docker-build-%
-docker-build-%:
-	$(call build-docker-image, $(DOCKER_BUILD_ARGS), $(DOCKER_REGISTRY)/constraint-policy-$*:$(DOCKER_TAG), build/Dockerfile.$*, $(DOCKER_BUILD_ARGS))
-
-#docker-build: test ## Build docker image with the manager.
-#	docker build $(DOCKER_BUILD_FLAGS) -t ${MANAGER_IMG} -f build/Dockerfile.manager $(DOCKER_BUILD_ARGS) .
+docker-build-scheduler: ## Build docker image for the constraint policy scheduler.
+	docker build $(DOCKER_BUILD_FLAGS) -t $(SCHEDULER_IMG) -f build/Dockerfile.scheduler $(DOCKER_BUILD_ARGS) .
 
 .PHONY: docker-push
-docker-push: docker-push-manager docker-push-scheduler ## Push docker image with the manager.
+docker-push: docker-push-manager docker-push-scheduler ## Push all docker images.
 
-.PHONY: docker-push-%
-docker-push-%:
-	@echo "Pushing docker image for $*"
-	docker push $(DOCKER_REGISTRY)/constraint-policy-$*:$(DOCKER_TAG)
+.PHONY: docker-push-manager
+docker-push-manager: ## Push the docker image for the constraint policy manager.
+	docker push $(MANAGER_IMG)
+
+.PHONY: docker-push-scheduler
+docker-push-scheduler: ## Push the docker image for the constraint policy scheduler.
+	docker push $(SCHEDULER_IMG)
 
 ifeq (,$(shell which protoc 2>/dev/null))
 	$(warn Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
@@ -219,7 +220,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: deploy-manager deploy-scheduler
 
 deploy-manager:manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${MANAGER_IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(MANAGER_IMG)
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 deploy-scheduler:
@@ -228,11 +229,11 @@ deploy-scheduler:
 .PHONY: undeploy undeploy-manager undeploy-scheduler
 undeploy: undeploy-scheduler undeploy-manager
 
-undeploy-manager: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+undeploy-manager: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 undeploy-scheduler:
-	kubectl delete  -f ./deploy/constraint-policy-scheduler.yaml
+	kubectl delete  --ignore-not-found=$(ignore-not-found) -f ./deploy/constraint-policy-scheduler.yaml
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen

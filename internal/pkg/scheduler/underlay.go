@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	"github.com/ciena/turnbuckle/apis/underlay"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
-	"time"
 )
 
 type nodeOffer struct {
@@ -47,7 +48,7 @@ func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var policyRules []*underlay.PolicyRule
-	//unused, so just send empty
+	// unused, so just send empty
 	for range rules {
 		policyRules = append(policyRules, &underlay.PolicyRule{})
 	}
@@ -84,7 +85,7 @@ func (c *underlayController) Allocate(pathId string) error {
 	gopts = append(gopts, grpc.WithInsecure())
 	conn, err := grpc.Dial(dns, gopts...)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to connect to underlay controller: %w", err)
 	}
 	defer conn.Close()
 
@@ -95,7 +96,7 @@ func (c *underlayController) Allocate(pathId string) error {
 	req := underlay.AllocateRequest{Id: pathId}
 	_, err = client.Allocate(ctx, &req)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to allocate underlay: %w", err)
 	}
 	return nil
 }
@@ -108,7 +109,7 @@ func (c *underlayController) Release(pathId string) error {
 	gopts = append(gopts, grpc.WithInsecure())
 	conn, err := grpc.Dial(dns, gopts...)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to connect to underlay controller: %w", err)
 	}
 	defer conn.Close()
 
@@ -119,7 +120,7 @@ func (c *underlayController) Release(pathId string) error {
 	req := underlay.ReleaseRequest{Id: pathId}
 	_, err = client.Release(ctx, &req)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to release client connection: %w", err)
 	}
 	return nil
 }

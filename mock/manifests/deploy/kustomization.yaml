@@ -5,7 +5,7 @@ resources:
 - ../base
 images:
 - name: mock
-  newName: dockerhub.com/rule-provider-mock
+  newName: rule-provider-mock
   newTag: v0.0.1-alpha
 patchesStrategicMerge:
 - ./patch-service.yaml

@@ -3,10 +3,13 @@ package podpredicates
 import (
 	"errors"
 	"fmt"
-	"k8s.io/api/core/v1"
+	"strings"
+
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"strings"
 )
 
 // Resource is a collection of compute resource.
@@ -21,7 +24,7 @@ type Resource struct {
 	ScalarResources map[v1.ResourceName]int64
 }
 
-// NewResource creates a Resource from ResourceList
+// NewResource creates a Resource from ResourceList.
 func NewResource(rl v1.ResourceList) *Resource {
 	r := &Resource{}
 	r.Add(rl)

@@ -33,4 +33,4 @@ spec:
       containers:
       - name: mock
         image: mock
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
