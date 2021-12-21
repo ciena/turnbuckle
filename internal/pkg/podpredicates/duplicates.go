@@ -5,6 +5,10 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+
+	v1 "k8s.io/api/core/v1"
+	clientset "k8s.io/client-go/kubernetes"
+	podutil "sigs.k8s.io/descheduler/pkg/descheduler/pod"
 )
 
 // PodIsADuplicate checks if the given pod is a duplicate of another pod on the same node
