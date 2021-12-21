@@ -6,44 +6,31 @@ type prioQueue struct {
 	lessFn func(n1, n2 string) bool
 }
 
-// create a priority queue with a set of nodes
-func NewPrioQueue(nodes []string, less func(n1, n2 string) bool) *prioQueue {
-	heap := make([]string, len(nodes))
+func emptyPrioQueue(less func(n1, n2 string) bool) *prioQueue {
 	index := make(map[string]int)
-	for i := range nodes {
-		heap[i] = nodes[i]
-		index[heap[i]] = i
-	}
-	return &prioQueue{heap: heap, index: index, lessFn: less}
-}
 
-// create an empty priority queue
-func EmptyPrioQueue(less func(n1, n2 string) bool) *prioQueue {
-	index := make(map[string]int)
 	return &prioQueue{index: index, lessFn: less}
 }
 
-// get the length of the priority queue
-func (p *prioQueue) Len() int {
+func (p *prioQueue) len() int {
 	return len(p.heap)
 }
 
-// push a node into the priority queue
-func (p *prioQueue) Push(node string) {
-	n := p.Len()
+func (p *prioQueue) push(node string) {
+	n := p.len()
 	p.heap = append(p.heap, node)
 	p.index[node] = n
 	p.up(n)
 }
 
-// pop a node from the priority queue
-func (p *prioQueue) Pop() string {
-	n := p.Len() - 1
+func (p *prioQueue) pop() string {
+	n := p.len() - 1
 	p.swap(0, n)
 	p.down(0, n)
 	v := p.heap[n]
 	delete(p.index, v)
 	p.heap = p.heap[:n]
+
 	return v
 }
 
@@ -57,52 +44,50 @@ func (p *prioQueue) swap(i, j int) {
 	p.index[p.heap[j]] = j
 }
 
-// check if node is part of the priority queue
-func (p *prioQueue) Contains(node string) bool {
-	if _, ok := p.index[node]; !ok {
-		return false
-	}
-	return true
-}
-
 // fix as the cost of node has changed.
-func (p *prioQueue) Fix(node string) {
+func (p *prioQueue) fix(node string) {
 	if _, ok := p.index[node]; !ok {
 		return
 	}
-	if i := p.index[node]; !p.down(i, p.Len()) {
+
+	if i := p.index[node]; !p.down(i, p.len()) {
 		p.up(i)
 	}
 }
 
-func (p *prioQueue) up(j int) {
+func (p *prioQueue) up(child int) {
 	for {
-		i := (j - 1) / 2
-		if i == j || !p.less(j, i) {
+		parent := (child - 1) / two
+		if parent == child || !p.less(child, parent) {
 			break
 		}
-		// swap j with parent
-		p.swap(i, j)
-		j = i
+		// swap child with parent
+		p.swap(parent, child)
+		child = parent
 	}
 }
 
-func (p *prioQueue) down(i0, n int) bool {
-	i := i0
+func (p *prioQueue) down(start, num int) bool {
+	root := start
+
 	for {
-		j1 := 2*i + 1
-		if j1 >= n || j1 < 0 {
+		child1 := two*root + 1
+		if child1 >= num || child1 < 0 {
 			break
 		}
-		j := j1
-		if j2 := j1 + 1; j2 < n && p.less(j2, j1) {
-			j = j2
+
+		child := child1
+		if child2 := child1 + 1; child2 < num && p.less(child2, child1) {
+			child = child2
 		}
-		if !p.less(j, i) {
+
+		if !p.less(child, root) {
 			break
 		}
-		p.swap(i, j)
-		i = j
+
+		p.swap(root, child)
+		root = child
 	}
-	return i > i0
+
+	return root > start
 }
