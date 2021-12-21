@@ -1,0 +1,77 @@
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: latencycost
+  namespace: default
+spec:
+  priority: 10
+  rule: latency
+  target: ".*:.*:.*:Pod:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 10
+   - node: ".*:.*"
+     cost: 3
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: memorycost
+  namespace: default
+spec:
+  priority: 10
+  rule: memory
+  target: ".*:.*:.*:.*:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 10
+   - node: ".*:.*"
+     cost: 3
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: cpucost
+  namespace: default
+spec:
+  priority: 10
+  rule: cpu-count
+  target: ".*:.*:.*:.*:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 1
+   - node: ".*:.*"
+     cost: 3
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: jittercost
+  namespace: default
+spec:
+  priority: 10
+  rule: jitter
+  target: ".*:.*:.*:.*:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 10
+   - node: ".*:.*"
+     cost: 3
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: spacecost
+  namespace: default
+spec:
+  priority: 10
+  rule: space
+  target: ".*:.*:.*:.*:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 2
+   - node: ".*:.*"
+     cost: 3
+
+

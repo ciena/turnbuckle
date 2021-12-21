@@ -22,8 +22,6 @@ import threading
 from apis import ruleprovider_pb2_grpc
 from apis import ruleprovider_pb2
 import logging
-import random
-import time
 from grpc_reflection.v1alpha import reflection
 from kubernetes import client as k8s_client, config as k8s_config
 
@@ -110,15 +108,79 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
                                                        reason='unable to access k8s API')
     def EndpointCost(self, request, context):
         logging.getLogger()
-        nc = []
-        for node in request.eligibleNodes:
-            cost = random.randint(1, 10000)
-            nc.append(ruleprovider_pb2.NodeCost(node=node, cost=cost))
-            logging.debug('node {}, assigned cost {}'.format(node, cost))
+        try:
+            api = k8s_client.CustomObjectsApi()
+            ret = api.list_cluster_custom_object('constraint.ciena.com', 'v1',
+                                                 'costproviders')
 
-        return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
+            # sort the list of returned items based on priority, high to low
+            ret['items'].sort(key=lambda x: x['spec']['priority'], reverse=True)
+            ref = '{}:{}:{}:{}:{}'.format(request.source.cluster,
+                                          request.source.namespace,
+                                          request.source.apiVersion,
+                                          request.source.kind,
+                                          request.source.name)
+            # Walk the list of returned items and see if we have a match for
+            # the request
+            for item in ret['items']:
+                if item['spec']['rule'] != request.rule.name:
+                    continue
+                target = item['spec']['target']
+                parts = target.split(":")
+                count = len(parts)
+                if count == 1:  # apiVersion, kind, name
+                    target = '.*:.*:.*:.*:{}'.format(parts[0])
+                elif count == 2:  # apiVersion, kind, name
+                    target = '.*:.*:.*:{}:{}'.format(parts[0],
+                                                     parts[1])
+                elif count == 3:  # apiVersion, kind, name
+                    target = '.*:.*:{}:{}:{}'.format(parts[0],
+                                                     parts[1],
+                                                     parts[2])
+                elif count == 4:  # ns, apiVersion, kind, name
+                    target = '.*:{}:{}:{}:{}'.format(parts[0],
+                                                     parts[1],
+                                                     parts[2],
+                                                     parts[3])
+                if re.match(target, ref) is not None:
+                    logging.debug('costprovider match found for {}, rule {}'.format(ref, request.rule.name))
+                    nc = []
+                    for eligibleNode in request.eligibleNodes:
+                        node = '{}:{}'.format(request.source.cluster, eligibleNode)
+                        cost = -1
+                        for value in item['spec']['values']:
+                            n = value['node']
+                            c = value['cost']
+                            parts = n.split(':')
+                            if len(parts) == 1:
+                                # use node name
+                                n = '.*:{}'.format(parts[0])
+                            if re.match(n, node) is not None:
+                                cost = c
+                                break
+                        logging.debug('adding node {} with cost {}'.format(eligibleNode, cost))
+                        nc.append(ruleprovider_pb2.NodeCost(node=eligibleNode, cost=cost))
 
-random.seed(time.time())
+                    return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
+
+            logging.debug('no costprovider found for rule: {}, ref: {}'.format(request.rule.name,
+                                                                               ref))
+            nc = []
+            cost = int(os.getenv('DEFAULT_COST', '1'))
+            for node in request.eligibleNodes:
+                nc.append(ruleprovider_pb2.NodeCost(node=node, cost=cost))
+                logging.debug('node {}, assigned cost {}'.format(node, cost))
+
+            return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
+
+        except Exception as ex:
+            logging.error('unable to query cost providers: {}'.format(ex))
+            nc = []
+            for node in request.eligibleNodes:
+                nc.append(ruleprovider_pb2.NodeCost(node=node, cost=-1))
+
+            return ruleprovider_pb2.EndpointCostResponse(nodeAndCost = nc)
+
 logging.getLogger()
 server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 ruleprovider_pb2_grpc.add_RuleProviderServicer_to_server(

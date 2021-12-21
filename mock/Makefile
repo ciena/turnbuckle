@@ -88,11 +88,11 @@ clean: ## Delete build and/or temporary artifacts
 
 .PHONY: install
 install: ## Install the rule provider mock CRD into the K8s cluster specified in ~/.kube/config.
-	kubectl apply --wait -f ./apis/ruleprovider_crd.yaml
+	kubectl apply --wait -f ./apis/ruleprovider_crd.yaml -f ./apis/costprovider_crd.yaml
 
 .PHONY: uninstall
 uninstall:  ## Uninstall the rule provider mock CRD from the K8s cluster specified in ~/.kube/config. 
-	kubectl delete --ignore-not-found --wait -f ./apis/ruleprovider_crd.yaml
+	kubectl delete --ignore-not-found --wait -f ./apis/ruleprovider_crd.yaml -f ./apis/costprovider_crd.yaml
 
 .PHONY: deploy
 deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified in ~/.kube/config.

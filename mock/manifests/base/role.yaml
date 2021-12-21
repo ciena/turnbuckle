@@ -8,6 +8,7 @@ rules:
       - constraint.ciena.com
     resources:
       - ruleproviders
+      - costproviders
     verbs:
       - list
       - get
