@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: constraint-policy-manager
-  newTag: v0.0.1-alpha
+  newTag: v0.0.2-alpha

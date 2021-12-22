@@ -6,6 +6,6 @@ resources:
 images:
 - name: mock
   newName: rule-provider-mock
-  newTag: v0.0.1-alpha
+  newTag: v0.0.2-alpha
 patchesStrategicMerge:
 - ./patch-service.yaml

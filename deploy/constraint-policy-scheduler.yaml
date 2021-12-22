@@ -206,7 +206,7 @@ spec:
       containers:
         - name: constraint-policy-scheduler
           image: IMAGE_SPEC
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           args:
             - "--debug=DEBUG_SPEC"
             - "--extender=EXTENDER_SPEC"

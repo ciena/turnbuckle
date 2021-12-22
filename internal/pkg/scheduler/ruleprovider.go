@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ciena/turnbuckle/apis/ruleprovider"
-	graph "github.com/ciena/turnbuckle/internal/pkg/graph"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
@@ -15,7 +14,7 @@ import (
 )
 
 type RuleProvider interface {
-	EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error)
+	EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]NodeAndCost, error)
 }
 
 type ruleProvider struct {
@@ -24,7 +23,7 @@ type ruleProvider struct {
 	Service     corev1.Service
 }
 
-func (p *ruleProvider) EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]graph.NodeAndCost, error) {
+func (p *ruleProvider) EndpointCost(src types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]NodeAndCost, error) {
 	var gopts []grpc.DialOption
 	p.Log.V(1).Info("endpointcost", "namespace", p.Service.Namespace, "name", p.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:5309", p.Service.Name, p.Service.Namespace)
@@ -65,12 +64,13 @@ func (p *ruleProvider) EndpointCost(src types.Reference, eligibleNodes []string,
 		return nil, errors.New("No node found")
 	}
 
-	var nodeAndCost []graph.NodeAndCost
+	var nodeAndCost []NodeAndCost
 	for _, nc := range resp.NodeAndCost {
-		nodeAndCost = append(nodeAndCost, graph.NodeAndCost{
+		nodeAndCost = append(nodeAndCost, NodeAndCost{
 			Node: nc.Node,
 			Cost: nc.Cost,
 		})
 	}
+
 	return nodeAndCost, nil
 }

@@ -4,15 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
-	"os"
-	"strings"
-	"sync"
-	"time"
-
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
-	graph "github.com/ciena/turnbuckle/internal/pkg/graph"
 	podpredicates "github.com/ciena/turnbuckle/internal/pkg/podpredicates"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
@@ -25,10 +18,18 @@ import (
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"math/rand"
 	descheduler_nodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
+	"sort"
+	"strings"
+	"sync"
+	"time"
 )
 
-var ErrNoOffersAvailable = fmt.Errorf("no offers available to schedule pods")
+var (
+	ErrNoOffersAvailable = fmt.Errorf("no offers available to schedule pods")
+	ErrNoNodesFound      = fmt.Errorf("no eligible nodes found")
+)
 
 type ConstraintPolicySchedulerPlanner struct {
 	options                ConstraintPolicySchedulerPlannerOptions
@@ -36,7 +37,6 @@ type ConstraintPolicySchedulerPlanner struct {
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient
 	log                    logr.Logger
 	nodeLister             listersv1.NodeLister
-	graph                  *graph.Graph
 	quit                   chan struct{}
 	nodeQueue              chan *v1.Node
 	podUpdateQueue         workqueue.RateLimitingInterface
@@ -54,8 +54,9 @@ type ObjectMeta struct {
 	Namespace string
 }
 
-type PodPlannerInfo struct {
-	EligibleNodes []string
+type NodeAndCost struct {
+	Node string
+	Cost int64
 }
 
 type constraintPolicyOffer struct {
@@ -133,14 +134,6 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 		deleteFunc,
 	)
 
-	g, err := initGraphWithNodeLister(constraintPolicySchedulerPlanner.nodeLister, log)
-	if err != nil {
-		log.Error(err, "error-initializing-graph")
-		os.Exit(1)
-	}
-
-	constraintPolicySchedulerPlanner.graph = g
-
 	go constraintPolicySchedulerPlanner.listenForNodeEvents()
 	go constraintPolicySchedulerPlanner.listenForPodUpdateEvents()
 
@@ -190,47 +183,6 @@ func getEligibleNodeNames(nodeLister listersv1.NodeLister) ([]string, error) {
 		eligibleNodes[i] = eligibleNode.Name
 	}
 	return eligibleNodes, nil
-}
-
-func initGraphWithNodeLister(nodeLister listersv1.NodeLister, log logr.Logger) (*graph.Graph, error) {
-	if nodeNames, err := getEligibleNodeNames(nodeLister); err != nil {
-		return nil, err
-	} else {
-		return graph.NewGraph(nodeNames, log.WithName("graph")), nil
-	}
-}
-
-func initGraph(clientset *kubernetes.Clientset, log logr.Logger) (*graph.Graph, error) {
-	var nodes, eligibleNodes, preferNoScheduleNodes []v1.Node
-	var err error
-	allNodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range allNodes.Items {
-		preferNoSchedule, noSchedule := false, false
-		for _, taint := range node.Spec.Taints {
-			if taint.Effect == v1.TaintEffectPreferNoSchedule {
-				preferNoSchedule = true
-			} else if taint.Effect == v1.TaintEffectNoSchedule || taint.Effect == v1.TaintEffectNoExecute {
-				noSchedule = true
-			}
-		}
-		if !noSchedule {
-			eligibleNodes = append(eligibleNodes, node)
-		} else if preferNoSchedule {
-			preferNoScheduleNodes = append(preferNoScheduleNodes, node)
-		}
-	}
-	nodes = eligibleNodes
-	if len(nodes) == 0 {
-		nodes = preferNoScheduleNodes
-	}
-	nodeNames := make([]string, len(nodes))
-	for i, n := range nodes {
-		nodeNames[i] = n.Name
-	}
-	return graph.NewGraph(nodeNames, log.WithName("graph")), nil
 }
 
 func initInformers(clientset *kubernetes.Clientset, log logr.Logger, extender bool, quit chan struct{}, nodeQueue chan *v1.Node,
@@ -565,17 +517,19 @@ func mergeNodeCost(m1 map[string][]int64, m2 map[string][]int64) map[string][]in
 			m3[k] = append(m3[k], v2...)
 		}
 	}
+
 	return m3
 }
 
-func mergeNodeAllocationCost(m1 map[graph.NodePeerCost]string, m2 map[graph.NodePeerCost]string) map[graph.NodePeerCost]string {
-	m3 := make(map[graph.NodePeerCost]string)
-	for npc := range m1 {
-		if m2_id, ok := m2[npc]; ok {
+func mergeNodeAllocationCost(m1 map[NodeAndCost]string, m2 map[NodeAndCost]string) map[NodeAndCost]string {
+	m3 := make(map[NodeAndCost]string)
+	for nc := range m1 {
+		if m2Id, ok := m2[nc]; ok {
 			// we can use both as id is in both the lists
-			m3[npc] = m2_id
+			m3[nc] = m2Id
 		}
 	}
+
 	return m3
 }
 
@@ -603,8 +557,8 @@ func getAggregate(values []int64) int64 {
 	return sum
 }
 
-func filterOutInfiniteCost(nodeAndCost []graph.NodeAndCost) []graph.NodeAndCost {
-	out := []graph.NodeAndCost{}
+func filterOutInfiniteCost(nodeAndCost []NodeAndCost) []NodeAndCost {
+	out := []NodeAndCost{}
 	for _, nc := range nodeAndCost {
 		if nc.Cost >= 0 {
 			out = append(out, nc)
@@ -615,7 +569,7 @@ func filterOutInfiniteCost(nodeAndCost []graph.NodeAndCost) []graph.NodeAndCost 
 
 func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(src types.Reference, policyRules []*constraintv1alpha1.ConstraintPolicyRule,
 	eligibleNodes []string, peerNodeNames []string) (map[string]int64, []*constraintv1alpha1.ConstraintPolicyRule, error) {
-	ruleToCostMap := make(map[string][]graph.NodeAndCost)
+	ruleToCostMap := make(map[string][]NodeAndCost)
 	matchedRules := []*constraintv1alpha1.ConstraintPolicyRule{}
 	for _, rule := range policyRules {
 		if provider, err := s.lookupRuleProvider(rule.Name, ""); err != nil {
@@ -656,40 +610,37 @@ func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(src types.Reference, 
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getUnderlayCost(src types.Reference, eligibleNodes []string, peerNodeMap map[ObjectMeta]string,
-	peerNodeNames []string, rules []*constraintv1alpha1.ConstraintPolicyRule) (map[string]int64, map[graph.NodePeerCost]string, error) {
+	peerNodeNames []string, rules []*constraintv1alpha1.ConstraintPolicyRule) (map[string]int64, map[NodeAndCost]string, error) {
 	// this will make a grpc to underlay and get the cost
 	underlayController, err := s.lookupUnderlayController()
 	if err != nil {
 		s.log.Error(err, "underlay-controller-lookup-failed")
 		return nil, nil, err
 	}
+
 	nodeOffers, err := underlayController.Discover(eligibleNodes, peerNodeNames, rules)
 	if err != nil {
 		s.log.Error(err, "underlay-controller-path-discovery-failed")
 		return nil, nil, err
 	}
+
 	nodeCostMap := make(map[string]int64)
-	nodeAllocationPathMap := make(map[graph.NodePeerCost]string)
+	nodeAllocationPathMap := make(map[NodeAndCost]string)
+
 	for _, offer := range nodeOffers {
 		nodeCostMap[offer.node] = offer.cost
-		// map the id to the origin, peer and cost
-		for _, peer := range peerNodeNames {
-			if peer != offer.node {
-				nodeAllocationPathMap[graph.NodePeerCost{
-					NodeAndCost: graph.NodeAndCost{Node: offer.node, Cost: offer.cost},
-					Peer:        peer,
-				}] = offer.id
-			}
-		}
+		nodeAllocationPathMap[NodeAndCost{Node: offer.node, Cost: offer.cost}] = offer.id
 	}
+
 	return nodeCostMap, nodeAllocationPathMap, nil
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(matchingOffers []constraintPolicyOffer, pod *v1.Pod, eligibleNodes []string,
-	offerToRulesMap map[string][]*constraintv1alpha1.ConstraintPolicyRule) (map[string]int64, map[string]struct{}, map[graph.NodePeerCost]string, error) {
+	offerToRulesMap map[string][]*constraintv1alpha1.ConstraintPolicyRule) (map[string]int64, map[NodeAndCost]string, error) {
+
 	var offerCostMap map[string]int64
-	var nodeAllocationPathMap map[graph.NodePeerCost]string
-	peerNodeMap := make(map[string]struct{})
+	var nodeAllocationPathMap map[NodeAndCost]string
+
 	for _, matchingOffer := range matchingOffers {
 		rules, ok := offerToRulesMap[matchingOffer.offer.Name]
 		if !ok {
@@ -711,12 +662,6 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(matchingOffe
 			s.log.Error(err, "error-getting-underlay-cost", "offer", matchingOffer.offer.Name)
 			continue
 		}
-		for nodePeerCost := range allocationPathMap {
-			s.graph.AddCostBoth(nodePeerCost.Node, nodePeerCost.Peer, nodePeerCost.Cost)
-			if _, ok := peerNodeMap[nodePeerCost.Peer]; !ok {
-				peerNodeMap[nodePeerCost.Peer] = struct{}{}
-			}
-		}
 		if offerCostMap != nil {
 			offerCostMap = mergeOfferCost(offerCostMap, nodeCostMap)
 		} else {
@@ -730,17 +675,45 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(matchingOffe
 	}
 
 	if offerCostMap == nil || len(offerCostMap) == 0 {
-		return nil, nil, nil, fmt.Errorf("No underlay cost obtained for offers")
+		return nil, nil, fmt.Errorf("No underlay cost obtained for offers")
 	}
 
-	return offerCostMap, peerNodeMap, nodeAllocationPathMap, nil
+	return offerCostMap, nodeAllocationPathMap, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod, eligibleNodes []string, offers []constraintPolicyOffer) ([]string, []string, map[graph.NodePeerCost]string, error) {
+func (s *ConstraintPolicySchedulerPlanner) getNodeWithBestCost(nodeCostMap map[string]int64, applyFilter func(string) bool) (NodeAndCost, error) {
+
+	var nodeCostList []NodeAndCost
+	for n, c := range nodeCostMap {
+		nodeCostList = append(nodeCostList, NodeAndCost{Node: n, Cost: c})
+	}
+
+	if len(nodeCostList) == 0 {
+		return NodeAndCost{}, ErrNoNodesFound
+	}
+
+	//sort the list based on cost
+	sort.Slice(nodeCostList, func(i, j int) bool {
+		return nodeCostList[i].Cost < nodeCostList[j].Cost
+	})
+
+	// filter out nodes that don't satisfy the filter
+	for _, nodeAndCost := range nodeCostList {
+
+		if applyFilter != nil && !applyFilter(nodeAndCost.Node) {
+			continue
+		}
+
+		return nodeAndCost, nil
+	}
+
+	return NodeAndCost{}, ErrNoNodesFound
+}
+
+func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod, eligibleNodes []string, offers []constraintPolicyOffer) (map[string]int64, map[NodeAndCost]string, error) {
 	var offerCostMap map[string]int64
-	peerNodeMap := make(map[string]struct{})
 	offerToRulesMap := make(map[string][]*constraintv1alpha1.ConstraintPolicyRule)
-	nodeAllocationPathMap := make(map[graph.NodePeerCost]string)
+	nodeAllocationPathMap := make(map[NodeAndCost]string)
 	for _, matchingOffer := range offers {
 		var policyRules []*constraintv1alpha1.ConstraintPolicyRule
 		for _, policyName := range matchingOffer.offer.Spec.Policies {
@@ -760,56 +733,35 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod, eli
 			continue
 		}
 		offerToRulesMap[matchingOffer.offer.Name] = matchedRules
-		var peerNodeNames []string
-		if len(matchingOffer.peerNodeNames) == 0 {
-			peerNodeNames = eligibleNodes
-		} else {
-			peerNodeNames = matchingOffer.peerNodeNames
-		}
-		// we have the aggregate cost of the node to the peers that can be added to the graph (undirected)
-		for n, c := range nodeCostMap {
-			for _, peer := range peerNodeNames {
-				if n != peer {
-					s.graph.AddCostBoth(n, peer, c)
-					if _, ok := peerNodeMap[peer]; !ok {
-						peerNodeMap[peer] = struct{}{}
-					}
-				}
-			}
-		}
+
 		if offerCostMap != nil {
 			offerCostMap = mergeOfferCost(offerCostMap, nodeCostMap)
 		} else {
 			offerCostMap = nodeCostMap
 		}
 	}
+
 	if offerCostMap == nil {
-		return nil, nil, nil, fmt.Errorf("No offers were matched for pod %s", pod.Name)
+		return nil, nil, fmt.Errorf("No offers were matched for pod %s", pod.Name)
 	}
+
 	if len(offerCostMap) == 0 {
 		// if no nodes were found from ruleprovider, we go to the underlay
-		if costMap, peerMap, allocationPathMap, err := s.getUnderlayCostForOffers(offers, pod, eligibleNodes, offerToRulesMap); err != nil {
+		if costMap, allocationPathMap, err := s.getUnderlayCostForOffers(offers, pod, eligibleNodes, offerToRulesMap); err != nil {
 			s.log.Error(err, "get-underlay-cost-for-offers-failed")
-			return nil, nil, nil, err
+			return nil, nil, err
 		} else {
 			offerCostMap = costMap
-			peerNodeMap = peerMap
 			nodeAllocationPathMap = allocationPathMap
 		}
 	}
-	nodeNames := make([]string, 0, len(offerCostMap))
-	for n := range offerCostMap {
-		nodeNames = append(nodeNames, n)
-	}
-	peerNodeNames := make([]string, 0, len(peerNodeMap))
-	for p := range peerNodeMap {
-		peerNodeNames = append(peerNodeNames, p)
-	}
-	return nodeNames, peerNodeNames, nodeAllocationPathMap, nil
+
+	return offerCostMap, nodeAllocationPathMap, nil
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getNodeCost(pod *v1.Pod, eligibleNodes []string, offers []constraintPolicyOffer) (map[string]int64, error) {
 	var offerCostMap map[string]int64
+
 	for _, matchingOffer := range offers {
 		var policyRules []*constraintv1alpha1.ConstraintPolicyRule
 		for _, policyName := range matchingOffer.offer.Spec.Policies {
@@ -822,55 +774,26 @@ func (s *ConstraintPolicySchedulerPlanner) getNodeCost(pod *v1.Pod, eligibleNode
 			}
 			policyRules = mergeRules(policyRules, policy.Spec.Rules)
 		}
+
 		nodeCostMap, _, err := s.getEndpointCost(types.Reference{Name: pod.Name, Kind: "Pod"},
 			policyRules, eligibleNodes, matchingOffer.peerNodeNames)
 		if err != nil {
 			s.log.Error(err, "error-getting-endpoint-cost", "offer", matchingOffer.offer.Name)
 			continue
 		}
+
 		if offerCostMap != nil {
 			offerCostMap = mergeOfferCost(offerCostMap, nodeCostMap)
 		} else {
 			offerCostMap = nodeCostMap
 		}
 	}
+
 	if offerCostMap == nil {
 		return nil, fmt.Errorf("Could not get endpoint cost for pod %s", pod.Name)
 	}
-	return offerCostMap, nil
-}
 
-func (s *ConstraintPolicySchedulerPlanner) WaitForAllNodesToBeConnected(waitDuration time.Duration, nodes []string) error {
-	// we wait for all nodes currently in the lister cache to be fully connected
-	if len(nodes) == 0 {
-		allNodes, err := getEligibleNodes(s.nodeLister)
-		if err != nil {
-			return err
-		}
-		for _, n := range allNodes {
-			nodes = append(nodes, n.Name)
-		}
-	}
-	if waitDuration == 0 {
-		if !s.graph.IsFullyConnected(nodes) {
-			s.log.V(1).Info("not-fully-connected", "connection-info-incomplete-for-nodes", nodes)
-		}
-		return nil
-	}
-	ticker := time.NewTicker(waitDuration)
-	defer ticker.Stop()
-	done := make(chan struct{})
-	defer close(done)
-	ready, waitCh := s.graph.WaitForNodesToBeConnected(nodes, done)
-	if ready {
-		return nil
-	}
-	select {
-	case <-waitCh:
-		return nil
-	case <-ticker.C:
-		return fmt.Errorf("Timed out waiting for nodes %v to be connected", nodes)
-	}
+	return offerCostMap, nil
 }
 
 // to be used with scheduler extender option.
@@ -882,8 +805,9 @@ func (s *ConstraintPolicySchedulerPlanner) Start() {
 func (s *ConstraintPolicySchedulerPlanner) listenForNodeEvents() {
 	for {
 		select {
-		case node := <-s.nodeQueue:
-			s.graph.AddNode(node.Name)
+		case <-s.nodeQueue:
+			//nothing to do for now
+
 		case <-s.quit:
 			return
 		}
@@ -1059,13 +983,16 @@ func (s *ConstraintPolicySchedulerPlanner) podFitsNode(pod *v1.Pod, nodename str
 	if s.options.Extender {
 		return true
 	}
+
 	node, err := s.FindNodeLister(nodename)
 	if err != nil {
 		return false
 	}
+
 	if ok, _ := podpredicates.PodFitsNodeResource(pod, node); !ok {
 		return false
 	}
+
 	if ok := podpredicates.TolerationsTolerateTaintsWithFilter(pod.Spec.Tolerations, node.Spec.Taints,
 		func(taint *v1.Taint) bool {
 			return taint.Effect == v1.TaintEffectNoSchedule
@@ -1078,60 +1005,62 @@ func (s *ConstraintPolicySchedulerPlanner) podFitsNode(pod *v1.Pod, nodename str
 	if ok, err := podpredicates.PodCheckAntiAffinity(s.clientset, pod, node); err != nil || ok {
 		return false
 	}
+
 	if s.options.CheckForDuplicatePods {
 		if ok, err := podpredicates.PodIsADuplicate(s.clientset, pod, node); err != nil || ok {
 			return false
 		}
 	}
+
 	return true
 }
 
 func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []v1.Node, eligibleNodeNames []string) (*v1.Node, error) {
+
 	if len(eligibleNodes) == 0 {
 		s.log.V(1).Info("no-eligible-nodes-found", "pod", pod.Name)
 		return nil, fmt.Errorf("no-eligible-nodes-found-for-pod-%s", pod.Name)
 	}
+
 	offers, err := s.getPolicyOffers(pod)
 	if err != nil {
 		return nil, err
 	}
-	nodes, neighborNodes, nodeAllocationPathMap, err := s.getPodCandidateNodes(pod, eligibleNodeNames, offers)
+
+	nodeCostMap, nodeAllocationPathMap, err := s.getPodCandidateNodes(pod, eligibleNodeNames, offers)
 	if err != nil {
 		s.log.Error(err, "nodes-not-found", "pod", pod.Name)
 		return nil, err
 	}
-	s.log.V(1).Info("pod-node-assignment", "pod", pod.Name, "node-list", nodes, "neighbors", neighborNodes)
+
+	s.log.V(1).Info("pod-node-assignment", "pod", pod.Name, "node-candidates", nodeCostMap)
+
 	// find if the node was assigned to the neighbor pod
-	matchedNode, err := s.graph.GetNodeWithNeighborsAndCandidatesFilter(neighborNodes, nodes, func(nodeName string) bool {
+	matchedNode, err := s.getNodeWithBestCost(nodeCostMap, func(nodeName string) bool {
 		return s.podFitsNode(pod, nodeName)
 	})
+
 	if err != nil {
-		s.log.V(1).Info("error-getting-nodes-from-graph", "nodes", nodes, "neighbors", neighborNodes)
-		// try to colocate the pod with its neighbor
-		for _, neighbor := range neighborNodes {
-			if s.podFitsNode(pod, neighbor) {
-				s.log.V(1).Info("colocate-pod-with-neighbor", "pod", pod.Name, "peer", neighbor)
-				matchedNode = &graph.NodePeerCost{NodeAndCost: graph.NodeAndCost{Node: neighbor, Cost: 0}, Peer: neighbor}
-				break
-			}
-		}
-		if matchedNode == nil {
-			s.log.V(1).Info("requeuing-for-retry", "pod", pod.Name)
-			return nil, fmt.Errorf("no-nodes-found-for-pod-%s", pod.Name)
-		}
+		s.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
+		return nil, err
 	}
+
+	s.log.V(1).Info("pod-node-assignment", "pod", pod.Name, "node", matchedNode.Node, "cost", matchedNode.Cost)
+
 	nodeInstance, err := s.FindNodeLister(matchedNode.Node)
 	if err != nil {
-		s.log.V(1).Info("node-instance-not-found-in-lister-cache")
+		s.log.V(1).Info("node-instance-not-found-in-lister-cache", "node", matchedNode.Node)
 		s.log.V(1).Info("random-assignment", "pod", pod.Name)
 		return s.FindFitRandom(pod, eligibleNodes)
 	}
+
 	s.setPodNode(*pod, nodeInstance.Name)
-	s.log.V(1).Info("found-matching", "node", nodeInstance.Name, "pod", pod.Name)
+
 	// we check if we have to allocate a path to the underlay for this node
-	if underlayPathId, ok := nodeAllocationPathMap[*matchedNode]; ok {
+	if underlayPathId, ok := nodeAllocationPathMap[matchedNode]; ok {
+
 		if underlayController, err := s.lookupUnderlayController(); err != nil {
-			s.log.Error(err, "underlay-controller-lookup-failed", "for-node-peer", *matchedNode)
+			s.log.Error(err, "underlay-controller-lookup-failed", "for-node-and-costr", matchedNode)
 		} else {
 			if err := underlayController.Allocate(underlayPathId); err != nil {
 				s.log.V(1).Info("underlay-controller-allocate-failed", "path-id", underlayPathId)
@@ -1145,6 +1074,7 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 			}
 		}
 	}
+
 	return nodeInstance, nil
 }
 
@@ -1165,8 +1095,10 @@ func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNod
 		}
 	}
 	s.log.V(1).Info("find-best-node", "pod", pod.Name)
+
 	s.constraintPolicyMutex.Lock()
 	defer s.constraintPolicyMutex.Unlock()
+
 	if node, err := s.findFit(pod, feasibleNodes, nodeNames); err != nil {
 		// if no offers are matched for the pod, return the existing feasible nodes
 		return nil, err
