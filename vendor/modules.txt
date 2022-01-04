@@ -1168,9 +1168,6 @@ sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
 # sigs.k8s.io/descheduler v0.20.0
 ## explicit
-sigs.k8s.io/descheduler/pkg/api
-sigs.k8s.io/descheduler/pkg/descheduler/pod
-sigs.k8s.io/descheduler/pkg/utils
 # sigs.k8s.io/structured-merge-diff/v4 v4.1.2
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/merge

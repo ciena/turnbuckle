@@ -16,11 +16,12 @@ limitations under the License.
 package scheduler
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/term"
-	"time"
 )
 
 type configSpec struct {
@@ -32,7 +33,8 @@ type configSpec struct {
 	RetryOnNoOffers     bool
 }
 
-var config configSpec = configSpec{Debug: true,
+var config configSpec = configSpec{
+	Debug:               true,
 	NumRetriesOnFailure: 3,
 	MinDelayOnFailure:   time.Duration(30 * time.Second),
 	MaxDelayOnFailure:   time.Duration(time.Minute),

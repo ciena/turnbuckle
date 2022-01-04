@@ -18,6 +18,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -28,12 +29,13 @@ import (
 )
 
 const (
-	Name = "ConstraintPolicyScheduler"
+	Name = "ConstraintPolicyScheduling"
 )
 
 type ConstraintPolicyScheduling struct {
 	scheduler *ConstraintPolicyScheduler
 	fh        framework.Handle
+	log       logr.Logger
 }
 
 var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
@@ -47,7 +49,6 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 		}
 		log = zapr.NewLogger(zapLog)
-
 	} else {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
@@ -75,7 +76,9 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 		clientset, handle, constraintPolicyClient,
 		log.WithName("constraint-policy").WithName("scheduler"))
 
-	constraintPolicyScheduling := &ConstraintPolicyScheduling{fh: handle, scheduler: constraintPolicyScheduler}
+	constraintPolicyScheduling := &ConstraintPolicyScheduling{fh: handle, scheduler: constraintPolicyScheduler,
+		log: log.WithName("scheduling-plugin"),
+	}
 	return constraintPolicyScheduling, nil
 }
 
@@ -95,17 +98,17 @@ func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
 
 	for _, nodeInfo := range allNodes {
 		if filteredNodeStatusMap[nodeInfo.Node().Name].Code() == framework.Success {
+			c.log.V(1).Info("post-filter", "using-node", nodeInfo.Node().Name)
 			eligibleNodes = append(eligibleNodes, nodeInfo.Node())
 		}
 	}
 
 	if len(eligibleNodes) == 0 {
-		c.scheduler.log.V(1).Info("post-filter-no-nodes-eligible")
+		c.log.V(1).Info("post-filter-no-nodes-eligible")
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
 	node, err := c.scheduler.FindBestNode(pod, eligibleNodes)
-
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}

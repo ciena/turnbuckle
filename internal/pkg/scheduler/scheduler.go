@@ -43,7 +43,6 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	fh framework.Handle,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
 	log logr.Logger) *ConstraintPolicyScheduler {
-
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
 	podQueue := make(chan *v1.Pod, 300)
@@ -187,7 +186,6 @@ func (s *ConstraintPolicyScheduler) podCheckScheduler(pod *v1.Pod) bool {
 }
 
 func (s *ConstraintPolicyScheduler) findFit(pod *v1.Pod, eligibleNodes []*v1.Node) (*v1.Node, error) {
-
 retry:
 	nodeInstance, err := s.defaultPlanner.FindBestNode(pod, eligibleNodes)
 	if err == ErrNoOffersAvailable {
@@ -219,7 +217,7 @@ retry:
 	return nodeInstance, nil
 }
 
-// find the best node for the pod
+// find the best node for the pod.
 func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
 	s.log.V(1).Info("find-best-node", "pod", pod.Name)
 	s.constraintPolicyMutex.Lock()

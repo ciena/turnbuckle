@@ -16,14 +16,14 @@ limitations under the License.
 package main
 
 import (
+	"os"
+
 	constraintPolicyScheduling "github.com/ciena/turnbuckle/internal/pkg/scheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
-	"os"
 )
 
 func main() {
-
 	// Register custom plugins to the scheduler framework.
 	command := app.NewSchedulerCommand(
 		app.WithPlugin(constraintPolicyScheduling.Name, constraintPolicyScheduling.New),

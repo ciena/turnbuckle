@@ -175,6 +175,26 @@ roleRef:
   name: constraint-policy-scheduler-bindings
   apiGroup: rbac.authorization.k8s.io
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+  namespace: turnbuckle-system
+data:
+  scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1beta1
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: false
+    profiles:
+    - schedulerName: constraint-policy-scheduler
+      plugins:
+        postFilter:
+          enabled:
+          - name: ConstraintPolicyScheduling
+          disabled:
+          - name: "*"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -209,8 +229,18 @@ spec:
           imagePullPolicy: Always
           args:
             - "--debug=DEBUG_SPEC"
-            - "--extender=EXTENDER_SPEC"
             - "--retry-on-no-offers=false"
             - "--num-retries-on-failure=5"
             - "--min-delay-on-failure=15s"
             - "--max-delay-on-failure=45s"
+            - "--schedule-on-no-offers=false"
+            - "--config=/etc/kubernetes/scheduler-config.yaml"
+            - "--leader-elect=false"
+          volumeMounts:
+          - name: scheduler-config
+            mountPath: /etc/kubernetes
+            readOnly: true
+      volumes:
+      - name: scheduler-config
+        configMap:
+          name: scheduler-config

@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/ciena/turnbuckle/pkg/types"
@@ -17,11 +23,6 @@ import (
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"math/rand"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -629,7 +630,6 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCost(src types.Reference, 
 
 func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(matchingOffers []constraintPolicyOffer, pod *v1.Pod, eligibleNodes []string,
 	offerToRulesMap map[string][]*constraintv1alpha1.ConstraintPolicyRule) (map[string]int64, map[NodeAndCost]string, error) {
-
 	var offerCostMap map[string]int64
 	var nodeAllocationPathMap map[NodeAndCost]string
 
@@ -674,7 +674,6 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(matchingOffe
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getNodeWithBestCost(nodeCostMap map[string]int64, applyFilter func(string) bool) (NodeAndCost, error) {
-
 	var nodeCostList []NodeAndCost
 	for n, c := range nodeCostMap {
 		nodeCostList = append(nodeCostList, NodeAndCost{Node: n, Cost: c})
@@ -684,14 +683,13 @@ func (s *ConstraintPolicySchedulerPlanner) getNodeWithBestCost(nodeCostMap map[s
 		return NodeAndCost{}, ErrNoNodesFound
 	}
 
-	//sort the list based on cost
+	// sort the list based on cost
 	sort.Slice(nodeCostList, func(i, j int) bool {
 		return nodeCostList[i].Cost < nodeCostList[j].Cost
 	})
 
 	// filter out nodes that don't satisfy the filter
 	for _, nodeAndCost := range nodeCostList {
-
 		if applyFilter != nil && !applyFilter(nodeAndCost.Node) {
 			continue
 		}
@@ -797,7 +795,7 @@ func (s *ConstraintPolicySchedulerPlanner) listenForNodeEvents() {
 	for {
 		select {
 		case <-s.nodeQueue:
-			//nothing to do for now
+			// nothing to do for now
 
 		case <-s.quit:
 			return
@@ -974,7 +972,6 @@ func (s *ConstraintPolicySchedulerPlanner) podFitsNode(pod *v1.Pod, nodename str
 }
 
 func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []*v1.Node, eligibleNodeNames []string) (*v1.Node, error) {
-
 	if len(eligibleNodes) == 0 {
 		s.log.V(1).Info("no-eligible-nodes-found", "pod", pod.Name)
 		return nil, fmt.Errorf("no-eligible-nodes-found-for-pod-%s", pod.Name)
@@ -997,7 +994,6 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 	matchedNode, err := s.getNodeWithBestCost(nodeCostMap, func(nodeName string) bool {
 		return s.podFitsNode(pod, nodeName)
 	})
-
 	if err != nil {
 		s.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
 		return nil, err
@@ -1016,7 +1012,6 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 
 	// we check if we have to allocate a path to the underlay for this node
 	if underlayPathId, ok := nodeAllocationPathMap[matchedNode]; ok {
-
 		if underlayController, err := s.lookupUnderlayController(); err != nil {
 			s.log.Error(err, "underlay-controller-lookup-failed", "for-node-and-costr", matchedNode)
 		} else {
