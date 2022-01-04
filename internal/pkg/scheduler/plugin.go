@@ -41,11 +41,20 @@ var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
 
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+	if config.Debug {
+		zapLog, err := zap.NewDevelopment()
+		if err != nil {
+			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+		}
+		log = zapr.NewLogger(zapLog)
+
+	} else {
+		zapLog, err := zap.NewProduction()
+		if err != nil {
+			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+		}
+		log = zapr.NewLogger(zapLog)
 	}
-	log = zapr.NewLogger(zapLog)
 
 	clientset := handle.ClientSet()
 	kubeconfig := handle.KubeConfig()
@@ -57,10 +66,11 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	}
 
 	constraintPolicyScheduler := NewScheduler(ConstraintPolicySchedulerOptions{
-		NumRetriesOnFailure: schedulerConfig.NumRetriesOnFailure,
-		MinDelayOnFailure:   schedulerConfig.MinDelayOnFailure,
-		MaxDelayOnFailure:   schedulerConfig.MaxDelayOnFailure,
-		FallbackOnNoOffers:  schedulerConfig.FallbackOnNoOffers,
+		NumRetriesOnFailure: config.NumRetriesOnFailure,
+		MinDelayOnFailure:   config.MinDelayOnFailure,
+		MaxDelayOnFailure:   config.MaxDelayOnFailure,
+		FallbackOnNoOffers:  config.FallbackOnNoOffers,
+		RetryOnNoOffers:     config.RetryOnNoOffers,
 	},
 		clientset, handle, constraintPolicyClient,
 		log.WithName("constraint-policy").WithName("scheduler"))
