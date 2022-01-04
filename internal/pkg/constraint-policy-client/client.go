@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -39,22 +38,12 @@ func init() {
 	constraintv1alpha1.AddToScheme(Scheme)
 }
 
-func New(kubeConfig string, log logr.Logger) (ConstraintPolicyClient, error) {
-	var config *rest.Config
-	var err error
-	if kubeConfig == "" {
-		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
-		}
-	} else {
-		if config, err = clientcmd.BuildConfigFromFlags("", kubeConfig); err != nil {
-			return nil, err
-		}
-	}
+func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
 	client, err := newConstraintClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
+
 	return &constraintPolicyClient{client: client, log: log}, nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
-	podpredicates "github.com/ciena/turnbuckle/internal/pkg/podpredicates"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"math/rand"
-	descheduler_nodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
 	"sort"
 	"strings"
 	"sync"
@@ -33,7 +31,7 @@ var (
 
 type ConstraintPolicySchedulerPlanner struct {
 	options                ConstraintPolicySchedulerPlannerOptions
-	clientset              *kubernetes.Clientset
+	clientset              kubernetes.Interface
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient
 	log                    logr.Logger
 	nodeLister             listersv1.NodeLister
@@ -44,10 +42,7 @@ type ConstraintPolicySchedulerPlanner struct {
 	constraintPolicyMutex  sync.Mutex
 }
 
-type ConstraintPolicySchedulerPlannerOptions struct {
-	Extender              bool
-	CheckForDuplicatePods bool
-}
+type ConstraintPolicySchedulerPlannerOptions struct{}
 
 type ObjectMeta struct {
 	Name      string
@@ -69,7 +64,7 @@ type workWrapper struct {
 	work func() error
 }
 
-func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions, clientset *kubernetes.Clientset,
+func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions, clientset kubernetes.Interface,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
 	log logr.Logger,
 	addPodCallback func(pod *v1.Pod),
@@ -126,7 +121,6 @@ func NewPlannerWithPodCallbacks(options ConstraintPolicySchedulerPlannerOptions,
 	constraintPolicySchedulerPlanner.nodeLister = initInformers(
 		clientset,
 		log,
-		options.Extender,
 		constraintPolicySchedulerPlanner.quit,
 		constraintPolicySchedulerPlanner.nodeQueue,
 		addFunc,
@@ -185,7 +179,7 @@ func getEligibleNodeNames(nodeLister listersv1.NodeLister) ([]string, error) {
 	return eligibleNodes, nil
 }
 
-func initInformers(clientset *kubernetes.Clientset, log logr.Logger, extender bool, quit chan struct{}, nodeQueue chan *v1.Node,
+func initInformers(clientset kubernetes.Interface, log logr.Logger, quit chan struct{}, nodeQueue chan *v1.Node,
 	addFunc func(obj interface{}), updateFunc func(oldObj interface{}, newObj interface{}), deleteFunc func(obj interface{})) listersv1.NodeLister {
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 	nodeInformer := factory.Core().V1().Nodes()
@@ -212,22 +206,20 @@ func initInformers(clientset *kubernetes.Clientset, log logr.Logger, extender bo
 	return nodeInformer.Lister()
 }
 
-func (s *ConstraintPolicySchedulerPlanner) GetClientset() *kubernetes.Clientset {
+func (s *ConstraintPolicySchedulerPlanner) GetClientset() kubernetes.Interface {
 	return s.clientset
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getEligibleNodesAndNodeNames() ([]v1.Node, []string, error) {
+func (s *ConstraintPolicySchedulerPlanner) getEligibleNodesAndNodeNames() ([]*v1.Node, []string, error) {
 	nodeRefs, err := getEligibleNodes(s.nodeLister)
 	if err != nil {
 		return nil, nil, err
 	}
-	nodes := make([]v1.Node, len(nodeRefs))
 	nodeNames := make([]string, len(nodeRefs))
 	for i, n := range nodeRefs {
-		nodes[i] = *n
 		nodeNames[i] = n.Name
 	}
-	return nodes, nodeNames, nil
+	return nodeRefs, nodeNames, nil
 }
 
 func (s *ConstraintPolicySchedulerPlanner) handlePodUpdate(oldPod *v1.Pod, newPod *v1.Pod) {
@@ -796,7 +788,6 @@ func (s *ConstraintPolicySchedulerPlanner) getNodeCost(pod *v1.Pod, eligibleNode
 	return offerCostMap, nil
 }
 
-// to be used with scheduler extender option.
 func (s *ConstraintPolicySchedulerPlanner) Start() {
 	go s.listenForNodeEvents()
 	go s.listenForPodUpdateEvents()
@@ -828,7 +819,7 @@ func (s *ConstraintPolicySchedulerPlanner) setPodNode(pod v1.Pod, nodeName strin
 	s.podToNodeMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
 }
 
-func (s *ConstraintPolicySchedulerPlanner) FindFitRandom(pod *v1.Pod, nodes []v1.Node) (*v1.Node, error) {
+func (s *ConstraintPolicySchedulerPlanner) FindFitRandom(pod *v1.Pod, nodes []*v1.Node) (*v1.Node, error) {
 	if len(nodes) == 0 {
 		if eligibleNodes, _, err := s.getEligibleNodesAndNodeNames(); err != nil {
 			return nil, err
@@ -836,7 +827,7 @@ func (s *ConstraintPolicySchedulerPlanner) FindFitRandom(pod *v1.Pod, nodes []v1
 			nodes = eligibleNodes
 		}
 	}
-	return &nodes[rand.Intn(len(nodes))], nil
+	return nodes[rand.Intn(len(nodes))], nil
 }
 
 // Fast version. look up internal cache.
@@ -979,43 +970,10 @@ func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(pod *v1.Pod, pathId s
 }
 
 func (s *ConstraintPolicySchedulerPlanner) podFitsNode(pod *v1.Pod, nodename string) bool {
-	// extender already comes with an eligible list based on filters
-	if s.options.Extender {
-		return true
-	}
-
-	node, err := s.FindNodeLister(nodename)
-	if err != nil {
-		return false
-	}
-
-	if ok, _ := podpredicates.PodFitsNodeResource(pod, node); !ok {
-		return false
-	}
-
-	if ok := podpredicates.TolerationsTolerateTaintsWithFilter(pod.Spec.Tolerations, node.Spec.Taints,
-		func(taint *v1.Taint) bool {
-			return taint.Effect == v1.TaintEffectNoSchedule
-		}); !ok {
-		return false
-	}
-	if ok := descheduler_nodeutil.PodFitsCurrentNode(pod, node); !ok {
-		return false
-	}
-	if ok, err := podpredicates.PodCheckAntiAffinity(s.clientset, pod, node); err != nil || ok {
-		return false
-	}
-
-	if s.options.CheckForDuplicatePods {
-		if ok, err := podpredicates.PodIsADuplicate(s.clientset, pod, node); err != nil || ok {
-			return false
-		}
-	}
-
 	return true
 }
 
-func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []v1.Node, eligibleNodeNames []string) (*v1.Node, error) {
+func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []*v1.Node, eligibleNodeNames []string) (*v1.Node, error) {
 
 	if len(eligibleNodes) == 0 {
 		s.log.V(1).Info("no-eligible-nodes-found", "pod", pod.Name)
@@ -1078,8 +1036,8 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 	return nodeInstance, nil
 }
 
-// scheduler extender function to find the best node for the pod.
-func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNodes []v1.Node) (*v1.Node, error) {
+// scheduler function to find the best node for the pod.
+func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
 	var nodeNames []string
 	if len(feasibleNodes) == 0 {
 		if eligibleNodes, nodes, err := s.getEligibleNodesAndNodeNames(); err != nil {
@@ -1105,8 +1063,4 @@ func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNod
 	} else {
 		return node, nil
 	}
-}
-
-func init() {
-	rand.Seed(time.Now().Unix())
 }

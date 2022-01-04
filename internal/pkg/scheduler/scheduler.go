@@ -3,7 +3,6 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -14,16 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
-)
-
-const (
-	SchedulerName = "constraint-policy-scheduler"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
 type ConstraintPolicyScheduler struct {
 	options               ConstraintPolicySchedulerOptions
 	log                   logr.Logger
 	defaultPlanner        *ConstraintPolicySchedulerPlanner
+	fh                    framework.Handle
 	quit                  chan struct{}
 	podQueue              chan *v1.Pod
 	podRequeueQueue       workqueue.RateLimitingInterface
@@ -33,38 +30,34 @@ type ConstraintPolicyScheduler struct {
 }
 
 type ConstraintPolicySchedulerOptions struct {
-	Extender              bool
-	Planner               bool
-	NumRetriesOnFailure   int
-	MinDelayOnFailure     time.Duration
-	MaxDelayOnFailure     time.Duration
-	FallbackOnNoOffers    bool
-	RetryOnNoOffers       bool
-	CheckForDuplicatePods bool
+	Planner             bool
+	NumRetriesOnFailure int
+	MinDelayOnFailure   time.Duration
+	MaxDelayOnFailure   time.Duration
+	FallbackOnNoOffers  bool
+	RetryOnNoOffers     bool
 }
 
-func NewScheduler(options ConstraintPolicySchedulerOptions, clientset *kubernetes.Clientset,
+func NewScheduler(options ConstraintPolicySchedulerOptions,
+	clientset kubernetes.Interface,
+	fh framework.Handle,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
 	log logr.Logger) *ConstraintPolicyScheduler {
+
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
 	podQueue := make(chan *v1.Pod, 300)
-	addPodCallback = func(pod *v1.Pod) {
-		if !options.Extender && pod.Spec.NodeName == "" && pod.Spec.SchedulerName == SchedulerName {
-			podQueue <- pod
-		}
-	}
+
 	deletePodCallback = func(pod *v1.Pod) {
 		constraintPolicyScheduler.handlePodDelete(pod)
 	}
-	defaultPlanner := NewPlannerWithPodCallbacks(ConstraintPolicySchedulerPlannerOptions{
-		Extender:              options.Extender,
-		CheckForDuplicatePods: options.CheckForDuplicatePods,
-	},
+
+	defaultPlanner := NewPlannerWithPodCallbacks(ConstraintPolicySchedulerPlannerOptions{},
 		clientset, constraintPolicyClient, log.WithName("default-planner"),
 		addPodCallback, nil, deletePodCallback)
 
 	constraintPolicyScheduler.options = options
+	constraintPolicyScheduler.fh = fh
 	constraintPolicyScheduler.defaultPlanner = defaultPlanner
 	constraintPolicyScheduler.log = log
 	constraintPolicyScheduler.podQueue = podQueue
@@ -82,51 +75,12 @@ func (s *ConstraintPolicyScheduler) handlePodDelete(pod *v1.Pod) {
 }
 
 func (s *ConstraintPolicyScheduler) Stop() {
-	if s.options.Extender {
-		s.podRequeueQueue.ShutDown()
-	}
+	s.podRequeueQueue.ShutDown()
 	close(s.quit)
 }
 
-// to be used with scheduler extender option.
 func (s *ConstraintPolicyScheduler) Start() {
 	go s.listenForPodRequeueEvents()
-}
-
-func (s *ConstraintPolicyScheduler) Run() error {
-	go s.listenForPodRequeueEvents()
-	for {
-		select {
-		case p := <-s.podQueue:
-			s.constraintPolicyMutex.Lock()
-			node, err := s.findFit(p, []v1.Node{})
-			if err != nil {
-				s.constraintPolicyMutex.Unlock()
-				s.log.Error(err, "node-not-found-to-fit-pod")
-				continue
-			}
-			if node == nil {
-				s.constraintPolicyMutex.Unlock()
-				s.log.V(1).Info("node-assignment-deferred-to-planner", "pod", p.Name)
-				continue
-			}
-			err = s.bindPod(p, node)
-			if err != nil {
-				s.constraintPolicyMutex.Unlock()
-				s.log.Error(err, "failed-to-bind-pod")
-				continue
-			}
-			s.constraintPolicyMutex.Unlock()
-			message := fmt.Sprintf("Placed pod [%s/%s] on %s\n", p.Namespace, p.Name, node.Name)
-			err = s.emitEvent(p, message)
-			if err != nil {
-				s.log.Error(err, "failed-to-emit-event")
-				continue
-			}
-		case <-s.quit:
-			return nil
-		}
-	}
 }
 
 func (s *ConstraintPolicyScheduler) processRequeueEvents() bool {
@@ -184,11 +138,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 		forgetItem = false
 		// add back the pod to the podqueue
 		s.log.V(1).Info("pod-requeue-add", "pod", pod.Name, "num-requeues", numRequeues)
-		if s.options.Extender {
-			return true
-		}
-		s.podQueue <- data
-		return false
+		return true
 	}
 	s.log.V(1).Info("pod-requeue-requeues-exceeded", "pod", pod.Name)
 	return false
@@ -214,10 +164,8 @@ func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 	s.log.V(1).Info("pod-requeue", "pod", pod.Name, "namespace", pod.Namespace)
 	s.podRequeueQueue.AddRateLimited(pod)
 	s.podRequeueMutex.Unlock()
-	if !s.options.Extender {
-		return false
-	}
-	// retry from a rate limited queue for scheduler extender
+
+	// retry from a rate limited queue
 	// blocks till item is available
 	item, quit := s.podRequeueQueue.Get()
 	if quit {
@@ -235,15 +183,11 @@ func (s *ConstraintPolicyScheduler) requeueFixup(pod *v1.Pod) {
 }
 
 func (s *ConstraintPolicyScheduler) podCheckScheduler(pod *v1.Pod) bool {
-	if !s.options.Extender {
-		if pod.Spec.SchedulerName != SchedulerName {
-			return false
-		}
-	}
 	return true
 }
 
-func (s *ConstraintPolicyScheduler) findFit(pod *v1.Pod, eligibleNodes []v1.Node) (*v1.Node, error) {
+func (s *ConstraintPolicyScheduler) findFit(pod *v1.Pod, eligibleNodes []*v1.Node) (*v1.Node, error) {
+
 retry:
 	nodeInstance, err := s.defaultPlanner.FindBestNode(pod, eligibleNodes)
 	if err == ErrNoOffersAvailable {
@@ -275,49 +219,35 @@ retry:
 	return nodeInstance, nil
 }
 
-// scheduler extender function to find the best node for the pod.
-func (s *ConstraintPolicyScheduler) FindBestNodes(pod *v1.Pod, feasibleNodes []v1.Node) ([]v1.Node, error) {
-	if !s.options.Extender {
-		return nil, fmt.Errorf("Extender config not set. Find best nodes failed for pod %s.", pod.Name)
-	}
-	s.log.V(1).Info("find-best-nodes", "pod", pod.Name)
+// find the best node for the pod
+func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
+	s.log.V(1).Info("find-best-node", "pod", pod.Name)
 	s.constraintPolicyMutex.Lock()
 	defer s.constraintPolicyMutex.Unlock()
 	if node, err := s.findFit(pod, feasibleNodes); err != nil {
 		// if no offers are matched for the pod, return the existing feasible nodes
 		if err == ErrNoOffersAvailable {
-			return feasibleNodes, nil
+			if len(feasibleNodes) > 0 {
+				return feasibleNodes[0], nil
+			}
+			return nil, nil
 		}
 		s.log.V(1).Info("scheduler-extender", "no-nodes-available-to-schedule-pod", pod.Name)
-		return []v1.Node{}, nil
+
+		return nil, nil
 	} else {
 		if node == nil {
 			s.log.V(1).Info("scheduler-extender", "pod-waiting-for-planner-assignment", pod.Name)
-			return []v1.Node{}, nil
+			return nil, nil
 		}
 		message := fmt.Sprintf("Placing pod [%s/%s] on %s\n", pod.Namespace, pod.Name, node.Name)
 		err = s.emitEvent(pod, message)
 		if err != nil {
 			s.log.Error(err, "failed-to-emit-event")
 		}
-		return []v1.Node{*node}, nil
-	}
-}
 
-func (s *ConstraintPolicyScheduler) bindPod(p *v1.Pod, node *v1.Node) error {
-	return s.defaultPlanner.GetClientset().CoreV1().Pods(p.Namespace).Bind(context.Background(), &v1.Binding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      p.Name,
-			Namespace: p.Namespace,
-		},
-		Target: v1.ObjectReference{
-			APIVersion: "v1",
-			Kind:       "Node",
-			Name:       node.Name,
-		},
-	},
-		metav1.CreateOptions{},
-	)
+		return node, nil
+	}
 }
 
 func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
@@ -331,7 +261,7 @@ func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
 			FirstTimestamp: metav1.NewTime(timestamp),
 			Type:           "Normal",
 			Source: v1.EventSource{
-				Component: SchedulerName,
+				Component: Name,
 			},
 			InvolvedObject: v1.ObjectReference{
 				Kind:      "Pod",
@@ -343,14 +273,9 @@ func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
 				GenerateName: p.Name + "-",
 			},
 		},
-		metav1.CreateOptions{},
-	)
+		metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func init() {
-	rand.Seed(time.Now().Unix())
 }
