@@ -38,6 +38,7 @@ type ConstraintPolicyScheduling struct {
 	log       logr.Logger
 }
 
+var _ framework.PreFilterPlugin = &ConstraintPolicyScheduling{}
 var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 
 func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
@@ -91,6 +92,16 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 
 func (c *ConstraintPolicyScheduling) Name() string {
 	return Name
+}
+
+func (c *ConstraintPolicyScheduling) PreFilter(ctx context.Context, state *framework.CycleState, pod *v1.Pod) *framework.Status {
+	c.log.V(1).Info("prefilter", "pod", pod.Name)
+	return framework.NewStatus(framework.Success, "")
+}
+
+// PreFilterExtensions returns prefilter extensions, pod add and remove.
+func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
+	return nil
 }
 
 func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
