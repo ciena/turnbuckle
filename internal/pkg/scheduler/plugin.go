@@ -76,9 +76,16 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 		clientset, handle, constraintPolicyClient,
 		log.WithName("constraint-policy").WithName("scheduler"))
 
-	constraintPolicyScheduling := &ConstraintPolicyScheduling{fh: handle, scheduler: constraintPolicyScheduler,
-		log: log.WithName("scheduling-plugin"),
+	pluginLogger := log.WithName("scheduling-plugin")
+
+	constraintPolicyScheduling := &ConstraintPolicyScheduling{
+		fh:        handle,
+		scheduler: constraintPolicyScheduler,
+		log:       pluginLogger,
 	}
+
+	pluginLogger.V(1).Info("constraint-policy-scheduling-plugin-initialized")
+
 	return constraintPolicyScheduling, nil
 }
 

@@ -137,7 +137,10 @@ metadata:
   name: constraint-policy-scheduler-services
 rules:
   - apiGroups: [""]
-    resources: ["services"]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes"]
     verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
