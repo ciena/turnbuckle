@@ -40,6 +40,7 @@ type ConstraintPolicyScheduling struct {
 
 var _ framework.PreFilterPlugin = &ConstraintPolicyScheduling{}
 var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
+var _ framework.ReservePlugin = &ConstraintPolicyScheduling{}
 
 func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
@@ -136,4 +137,14 @@ func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
 	}
 
 	return &framework.PostFilterResult{NominatedNodeName: node.Name}, framework.NewStatus(framework.Success)
+}
+
+func (c *ConstraintPolicyScheduling) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
+	c.log.V(1).Info("reserve", "pod", p.Name, "node", nodeName)
+
+	return framework.NewStatus(framework.Success, "")
+}
+
+func (c *ConstraintPolicyScheduling) Unreserve(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) {
+	c.log.V(1).Info("unreserve", "pod", pod.Name, "node", nodeName)
 }
