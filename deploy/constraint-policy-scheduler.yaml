@@ -200,7 +200,7 @@ data:
           - name: ConstraintPolicyScheduling
           disabled:
           - name: "*"
-        reserve:
+        score:
           enabled:
           - name: ConstraintPolicyScheduling
 ---

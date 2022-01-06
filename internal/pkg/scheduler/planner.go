@@ -994,6 +994,7 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(pod *v1.Pod, eligibleNodes []
 	matchedNode, err := s.getNodeWithBestCost(nodeCostMap, func(nodeName string) bool {
 		return s.podFitsNode(pod, nodeName)
 	})
+
 	if err != nil {
 		s.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
 		return nil, err

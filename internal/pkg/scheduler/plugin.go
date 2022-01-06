@@ -17,6 +17,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
@@ -29,7 +30,8 @@ import (
 )
 
 const (
-	Name = "ConstraintPolicyScheduling"
+	Name              = "ConstraintPolicyScheduling"
+	preFilterStateKey = "PreFilter" + Name
 )
 
 type ConstraintPolicyScheduling struct {
@@ -38,9 +40,13 @@ type ConstraintPolicyScheduling struct {
 	log       logr.Logger
 }
 
+type preFilterState struct {
+	node string
+}
+
 var _ framework.PreFilterPlugin = &ConstraintPolicyScheduling{}
+var _ framework.ScorePlugin = &ConstraintPolicyScheduling{}
 var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
-var _ framework.ReservePlugin = &ConstraintPolicyScheduling{}
 
 func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
@@ -91,39 +97,43 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	return constraintPolicyScheduling, nil
 }
 
-func (c *ConstraintPolicyScheduling) Name() string {
-	return Name
+func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error) {
+	state, err := cycleState.Read(preFilterStateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if state == nil {
+		return nil, errors.New("assignment-state-nil")
+	}
+
+	assignmentState, ok := state.(*preFilterState)
+	if !ok {
+		return nil, fmt.Errorf("%+v convert to node assignment state error", state)
+	}
+
+	return assignmentState, nil
 }
 
-func (c *ConstraintPolicyScheduling) PreFilter(ctx context.Context, state *framework.CycleState, pod *v1.Pod) *framework.Status {
-	c.log.V(1).Info("prefilter", "pod", pod.Name)
-	return framework.NewStatus(framework.Success, "")
+func (s *preFilterState) Clone() framework.StateData {
+	return s
 }
 
-// PreFilterExtensions returns prefilter extensions, pod add and remove.
-func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
-	return nil
-}
-
-func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
-	state *framework.CycleState, pod *v1.Pod,
-	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
-	var eligibleNodes []*v1.Node
+func (c *ConstraintPolicyScheduling) createPreFilterState(ctx context.Context, pod *v1.Pod) (*preFilterState, *framework.Status) {
 
 	allNodes, err := c.fh.SnapshotSharedLister().NodeInfos().List()
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}
 
+	var eligibleNodes []*v1.Node
+
 	for _, nodeInfo := range allNodes {
-		if filteredNodeStatusMap[nodeInfo.Node().Name].Code() == framework.Success {
-			c.log.V(1).Info("post-filter", "using-node", nodeInfo.Node().Name)
-			eligibleNodes = append(eligibleNodes, nodeInfo.Node())
-		}
+		eligibleNodes = append(eligibleNodes, nodeInfo.Node())
 	}
 
 	if len(eligibleNodes) == 0 {
-		c.log.V(1).Info("post-filter-no-nodes-eligible")
+		c.log.V(1).Info("pre-filter-no-nodes-eligible")
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
@@ -136,15 +146,65 @@ func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
-	return &framework.PostFilterResult{NominatedNodeName: node.Name}, framework.NewStatus(framework.Success)
+	return &preFilterState{node: node.Name}, framework.NewStatus(framework.Success)
 }
 
-func (c *ConstraintPolicyScheduling) Reserve(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
-	c.log.V(1).Info("reserve", "pod", p.Name, "node", nodeName)
-
-	return framework.NewStatus(framework.Success, "")
+func (c *ConstraintPolicyScheduling) Name() string {
+	return Name
 }
 
-func (c *ConstraintPolicyScheduling) Unreserve(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) {
-	c.log.V(1).Info("unreserve", "pod", pod.Name, "node", nodeName)
+func (c *ConstraintPolicyScheduling) PreFilter(ctx context.Context, state *framework.CycleState, pod *v1.Pod) *framework.Status {
+	c.log.V(1).Info("prefilter", "pod", pod.Name)
+
+	assignmentState, status := c.createPreFilterState(ctx, pod)
+	if !status.IsSuccess() {
+		return status
+	}
+
+	state.Write(preFilterStateKey, assignmentState)
+
+	return status
+}
+
+// PreFilterExtensions returns prefilter extensions, pod add and remove.
+func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
+	return nil
+}
+
+func (c *ConstraintPolicyScheduling) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	c.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
+
+	assignmentState, err := getPreFilterState(state)
+	if err != nil {
+		return framework.MinNodeScore, framework.NewStatus(framework.Success)
+	}
+
+	if assignmentState.node != nodeName {
+		return 1, framework.NewStatus(framework.Success)
+	}
+
+	c.log.V(1).Info("set-score", "score", framework.MaxNodeScore, "pod", pod.Name, "node", nodeName)
+
+	return framework.MaxNodeScore, framework.NewStatus(framework.Success)
+}
+
+func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions {
+	return nil
+}
+
+// PostFilter is called when no node can be assigned to the pod
+func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
+	state *framework.CycleState, pod *v1.Pod,
+	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
+
+	c.log.V(1).Info("post-filter", "pod", pod.Name)
+
+	assignmentState, err := getPreFilterState(state)
+	if err != nil {
+		return nil, framework.AsStatus(err)
+	}
+
+	c.log.V(1).Info("post-filter", "nominated-node", assignmentState.node, "pod", pod.Name)
+
+	return &framework.PostFilterResult{NominatedNodeName: assignmentState.node}, framework.NewStatus(framework.Success)
 }

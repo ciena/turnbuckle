@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -230,18 +229,13 @@ func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v
 			}
 			return nil, nil
 		}
-		s.log.V(1).Info("scheduler-extender", "no-nodes-available-to-schedule-pod", pod.Name)
+		s.log.V(1).Info("scheduler-plugin", "no-nodes-available-to-schedule-pod", pod.Name)
 
 		return nil, nil
 	} else {
 		if node == nil {
-			s.log.V(1).Info("scheduler-extender", "pod-waiting-for-planner-assignment", pod.Name)
+			s.log.V(1).Info("scheduler-plugin", "pod-waiting-for-planner-assignment", pod.Name)
 			return nil, nil
-		}
-		message := fmt.Sprintf("Placing pod [%s/%s] on %s\n", pod.Namespace, pod.Name, node.Name)
-		err = s.emitEvent(pod, message)
-		if err != nil {
-			s.log.Error(err, "failed-to-emit-event")
 		}
 
 		return node, nil
