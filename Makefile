@@ -19,11 +19,19 @@ VERSION=$(shell head -1 ./VERSION)
 DOCKER_REGISTRY ?= dockerhub.com
 DOCKER_TAG ?= $(VERSION)
 DOCKER_MANAGER_REPOSITORY ?= constraint-policy-manager
+DOCKER_SCHEDULER_REPOSITORY ?= constraint-policy-scheduler
 ifeq ($(DOCKER_REGISTRY),)
 MANAGER_IMG ?= $(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
 else
 MANAGER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_MANAGER_REPOSITORY):$(DOCKER_TAG)
 endif
+ifeq ($(DOCKER_REGISTRY),)
+SCHEDULER_IMG ?= $(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
+else
+SCHEDULER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
+endif
+SCHEDULER_DEBUG = true
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
 
@@ -135,23 +143,43 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: generate protos fmt vet ## Build manager binary.
-	go build -o bin/manager $(LDFLAGS) ./cmd/manager
+build: build-manager build-scheduler
+
+.PHONY: build-%
+build-%: deps-% fmt vet
+	@echo "Building $*"
+	go build -o bin/$* $(LDFLAGS) ./cmd/$*
+
+deps-manager: generate protos
+
+deps-scheduler: protos
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run $(LDFLAGS) ./cmd/manager
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
-	docker build $(DOCKER_BUILD_FLAGS) -t ${MANAGER_IMG} -f build/Dockerfile.manager $(DOCKER_BUILD_ARGS) .
+docker-build: docker-build-manager docker-build-scheduler ## Build all docker images.
+
+docker-build-manager: ## Build docker image for the constraint policy manager.
+	docker build $(DOCKER_BUILD_FLAGS) -t $(MANAGER_IMG) -f build/Dockerfile.manager $(DOCKER_BUILD_ARGS) .
+
+docker-build-scheduler: ## Build docker image for the constraint policy scheduler.
+	docker build $(DOCKER_BUILD_FLAGS) -t $(SCHEDULER_IMG) -f build/Dockerfile.scheduler $(DOCKER_BUILD_ARGS) .
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	docker push ${MANAGER_IMG}
+docker-push: docker-push-manager docker-push-scheduler ## Push all docker images.
+
+.PHONY: docker-push-manager
+docker-push-manager: ## Push the docker image for the constraint policy manager.
+	docker push $(MANAGER_IMG)
+
+.PHONY: docker-push-scheduler
+docker-push-scheduler: ## Push the docker image for the constraint policy scheduler.
+	docker push $(SCHEDULER_IMG)
 
 ifeq (,$(shell which protoc 2>/dev/null))
-	$(error Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
+	$(warn Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
 endif
 
 apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
@@ -160,8 +188,14 @@ apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
 		--go_out=plugins=grpc:. \
 		$<
 
+apis/underlay/underlay.pb.go: apis/underlay.proto
+	protoc \
+		-I ./apis \
+		--go_out=plugins=grpc:. \
+		$<
+
 .PHONY: protos ## Generate Go code from the protocol buffer definitions
-protos: apis/ruleprovider/ruleprovider.pb.go
+protos: apis/ruleprovider/ruleprovider.pb.go apis/underlay/underlay.pb.go
 
 .PHONY: clean
 clean: ## Delete build and/or temporary artifacts
@@ -181,14 +215,24 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-.PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${MANAGER_IMG}
+.PHONY: deploy deploy-manager deploy-scheduler
+deploy: deploy-manager deploy-scheduler
+
+deploy-manager:manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(MANAGER_IMG)
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-.PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+deploy-scheduler:
+	sed -e "s;IMAGE_SPEC;$(SCHEDULER_IMG);g" -e "s;DEBUG_SPEC;$(SCHEDULER_DEBUG);g" ./deploy/constraint-policy-scheduler.yaml | kubectl apply -f -
+
+.PHONY: undeploy undeploy-manager undeploy-scheduler
+undeploy: undeploy-scheduler undeploy-manager
+
+undeploy-manager: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+undeploy-scheduler:
+	kubectl delete  --ignore-not-found=$(ignore-not-found) -f ./deploy/constraint-policy-scheduler.yaml
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen

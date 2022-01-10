@@ -31,6 +31,7 @@ spec:
     spec:
       serviceAccountName: mock-manager
       containers:
-        - name: mock
-          image: mock
-          imagePullPolicy: IfNotPresent
+      - name: mock
+        image: mock
+        imagePullPolicy: IfNotPresent
+

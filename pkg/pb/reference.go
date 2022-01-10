@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 imitations under the License.
 */
 
-package bp
+package pb
 
 import (
 	"github.com/ciena/turnbuckle/apis/ruleprovider"

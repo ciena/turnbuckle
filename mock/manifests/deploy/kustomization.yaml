@@ -4,8 +4,8 @@ kind: Kustomization
 resources:
   - ../base
 images:
-  - name: mock
-    newName: rule-provider-mock
-    newTag: v0.0.1-alpha
+- name: mock
+  newName: rule-provider-mock
+  newTag: v0.0.2-alpha
 patchesStrategicMerge:
-  - ./patch-service.yaml
+- ./patch-service.yaml

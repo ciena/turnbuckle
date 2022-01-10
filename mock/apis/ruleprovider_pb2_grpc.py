@@ -19,12 +19,23 @@ class RuleProviderStub(object):
                 request_serializer=apis_dot_ruleprovider__pb2.EvaluateRequest.SerializeToString,
                 response_deserializer=apis_dot_ruleprovider__pb2.EvaluateResponse.FromString,
                 )
+        self.EndpointCost = channel.unary_unary(
+                '/ruleprovider.RuleProvider/EndpointCost',
+                request_serializer=apis_dot_ruleprovider__pb2.EndpointCostRequest.SerializeToString,
+                response_deserializer=apis_dot_ruleprovider__pb2.EndpointCostResponse.FromString,
+                )
 
 
 class RuleProviderServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Evaluate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EndpointCost(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -37,6 +48,11 @@ def add_RuleProviderServicer_to_server(servicer, server):
                     servicer.Evaluate,
                     request_deserializer=apis_dot_ruleprovider__pb2.EvaluateRequest.FromString,
                     response_serializer=apis_dot_ruleprovider__pb2.EvaluateResponse.SerializeToString,
+            ),
+            'EndpointCost': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointCost,
+                    request_deserializer=apis_dot_ruleprovider__pb2.EndpointCostRequest.FromString,
+                    response_serializer=apis_dot_ruleprovider__pb2.EndpointCostResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -62,5 +78,22 @@ class RuleProvider(object):
         return grpc.experimental.unary_unary(request, target, '/ruleprovider.RuleProvider/Evaluate',
             apis_dot_ruleprovider__pb2.EvaluateRequest.SerializeToString,
             apis_dot_ruleprovider__pb2.EvaluateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EndpointCost(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ruleprovider.RuleProvider/EndpointCost',
+            apis_dot_ruleprovider__pb2.EndpointCostRequest.SerializeToString,
+            apis_dot_ruleprovider__pb2.EndpointCostResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

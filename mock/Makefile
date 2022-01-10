@@ -88,20 +88,20 @@ clean: ## Delete build and/or temporary artifacts
 
 .PHONY: install
 install: ## Install the rule provider mock CRD into the K8s cluster specified in ~/.kube/config.
-	kubectl apply --wait -f ./apis/ruleprovider_crd.yaml
+	kubectl apply --wait -f ./apis/ruleprovider_crd.yaml -f ./apis/costprovider_crd.yaml
 
 .PHONY: uninstall
 uninstall:  ## Uninstall the rule provider mock CRD from the K8s cluster specified in ~/.kube/config. 
-	kubectl delete --ignore-not-found --wait -f ./apis/ruleprovider_crd.yaml
+	kubectl delete --ignore-not-found --wait -f ./apis/ruleprovider_crd.yaml -f ./apis/costprovider_crd.yaml
 
 .PHONY: deploy
 deploy: manifests kustomize  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd manifests/deploy && $(KUSTOMIZE) edit set image mock=${IMG}
-	$(KUSTOMIZE) build manifests/deploy | kubectl apply --wait -f -
+	cd manifests/deploy && $(KUSTOMIZE)  edit set image mock=${IMG}
+	$(KUSTOMIZE)  build manifests/deploy | kubectl apply --wait -f -
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from th K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build manifests/deploy | kubectl delete --ignore-not-found --wait -f -
+undeploy: kustomize ## Undeploy controller from th K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE)  build manifests/deploy | kubectl delete --ignore-not-found --wait -f -
 
 .PHONY: tail-log
 tail-log: ## tail the log of the controller
