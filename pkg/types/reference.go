@@ -94,21 +94,15 @@ func (r ReferenceList) Contains(ref *Reference) bool {
 func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 	// Define a closer (nested function) that is used to increment
 	// the counters that represent the iterators through the permutations
-	var inc func(list []ReferenceList, refIdxs []int, refIdx int) bool
-	inc = func(list []ReferenceList, refIdxs []int, refIdx int) bool {
-		if refIdx < 0 {
-			return true
+	var inc func(list []ReferenceList, refIdxs []int)
+	inc = func(list []ReferenceList, refIdxs []int) {
+		for i := len(refIdxs) - 1; i >= 0; i-- {
+			if i == 0 || refIdxs[i] < len(list[i])-1 {
+				refIdxs[i]++
+				return
+			}
+			refIdxs[i] = 0
 		}
-
-		refIdxs[refIdx]++
-
-		if refIdxs[refIdx] >= len(list[refIdx]) {
-			refIdxs[refIdx] = 0
-
-			return inc(list, refIdxs, refIdx-1)
-		}
-
-		return false
 	}
 
 	// if any of the map entries are empty then we have no permutations
@@ -147,7 +141,7 @@ func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 
 	refIdxs := make([]int, len(m))
 
-	for {
+	for ; refIdxs[0] < len(list[0]); inc(list, refIdxs) {
 		// create a permutation from the current index values and
 		// append it to the list
 		var permutation ReferenceList
@@ -156,12 +150,6 @@ func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 		}
 
 		permutations = append(permutations, permutation)
-
-		// incremet the index counters and stop if we have
-		// reached the end
-		if inc(list, refIdxs, len(refIdxs)-1) {
-			break
-		}
 	}
 
 	return keys, permutations
