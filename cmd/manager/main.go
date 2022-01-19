@@ -23,8 +23,8 @@ import (
 	"os"
 	"time"
 
-	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	controllers "github.com/ciena/turnbuckle/controllers/constraint"
+	cpv1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

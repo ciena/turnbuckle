@@ -17,7 +17,7 @@ imitations under the License.
 package pb
 
 import (
-	"github.com/ciena/turnbuckle/apis/ruleprovider"
+	"github.com/ciena/turnbuckle/pkg/apis/ruleprovider"
 	"github.com/ciena/turnbuckle/pkg/types"
 )
 

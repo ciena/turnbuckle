@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
+	constraintv1alpha1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"

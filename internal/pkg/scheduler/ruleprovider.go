@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ciena/turnbuckle/apis/ruleprovider"
+	"github.com/ciena/turnbuckle/pkg/apis/ruleprovider"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"

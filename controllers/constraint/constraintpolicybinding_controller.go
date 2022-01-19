@@ -22,8 +22,8 @@ import (
 	"sort"
 	"time"
 
-	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
-	"github.com/ciena/turnbuckle/apis/ruleprovider"
+	cpv1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
+	"github.com/ciena/turnbuckle/pkg/apis/ruleprovider"
 	pb "github.com/ciena/turnbuckle/pkg/pb"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"google.golang.org/grpc"

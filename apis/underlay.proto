@@ -5,7 +5,7 @@ package underlay;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "apis/underlay";
+option go_package = "pkg/apis/underlay";
 option java_package = "github.com/turnbuckle/underlay";
 
 // Given a starting point of Node X, which of the following Nodes can you make

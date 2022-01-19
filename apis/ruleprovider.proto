@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ruleprovider;
 
-option go_package = "apis/ruleprovider";
+option go_package = "pkg/apis/ruleprovider";
 
 // Defines a single policy rule
 message PolicyRule {

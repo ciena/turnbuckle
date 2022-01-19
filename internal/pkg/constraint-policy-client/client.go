@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
+	constraintv1alpha1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

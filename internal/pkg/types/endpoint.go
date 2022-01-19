@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ciena/turnbuckle/apis/ruleprovider"
+	"github.com/ciena/turnbuckle/pkg/apis/ruleprovider"
 )
 
 // Endpoint a concreate end point reference.

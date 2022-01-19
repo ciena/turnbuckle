@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
+	constraintv1alpha1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	"github.com/ciena/turnbuckle/pkg/types"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"

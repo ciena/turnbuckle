@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
-	"github.com/ciena/turnbuckle/apis/underlay"
+	constraintv1alpha1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
+	"github.com/ciena/turnbuckle/pkg/apis/underlay"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"

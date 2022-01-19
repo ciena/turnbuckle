@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
+	cpv1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
