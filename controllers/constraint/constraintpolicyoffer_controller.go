@@ -22,6 +22,7 @@ import (
 
 	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	"github.com/ciena/turnbuckle/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uv1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -79,7 +80,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	// Lookup the offer being reconciled
 	var offer cpv1.ConstraintPolicyOffer
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, &offer); err != nil {
-		if isNotFoundOrGone(err) {
+		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			if r.Client.DeleteAllOf(context.TODO(), &cpv1.ConstraintPolicyBinding{},
 				client.InNamespace(req.NamespacedName.Namespace),
 				client.MatchingLabels(map[string]string{
@@ -107,7 +108,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		client.MatchingLabels(map[string]string{
 			labelRef: req.NamespacedName.Name,
 		})); err != nil {
-		if !isNotFoundOrGone(err) {
+		if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			logger.V(0).Info(apiError, "error", err.Error())
 
 			return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
@@ -153,7 +154,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		if err := r.Client.List(context.TODO(), &found,
 			client.InNamespace(req.NamespacedName.Namespace),
 			client.MatchingLabels(set)); err != nil {
-			if !isNotFoundOrGone(err) {
+			if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 				logger.V(0).Error(err, apiError)
 
 				return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
@@ -242,7 +243,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		}
 
 		if err := r.Client.Delete(context.TODO(), visit.Binding); err != nil {
-			if !isNotFoundOrGone(err) {
+			if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 				logger.V(0).Error(err, "delete-binding", lkName, name)
 			}
 		}
