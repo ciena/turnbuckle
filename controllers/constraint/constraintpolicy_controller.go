@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,7 +49,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// fetch the policy in question
 	var policy cpv1.ConstraintPolicy
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, &policy); err != nil {
-		if isNotFoundOrGone(err) {
+		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			logger.V(1).Info("not-found", lkNamespace, req.NamespacedName.Namespace,
 				lkName, req.NamespacedName.Name)
 

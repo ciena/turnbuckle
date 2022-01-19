@@ -28,6 +28,7 @@ import (
 	"github.com/ciena/turnbuckle/pkg/types"
 	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktypes "k8s.io/apimachinery/pkg/types"
@@ -183,7 +184,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	// lookup binding in question
 	var binding cpv1.ConstraintPolicyBinding
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, &binding); err != nil {
-		if isNotFoundOrGone(err) {
+		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			// if gone, no need to do anything
 			logger.V(1).Info("not-found", lkNamespace, req.Namespace,
 				lkName, req.Name)
@@ -214,7 +215,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	if err := r.Client.Get(context.TODO(), ktypes.NamespacedName{
 		Namespace: req.Namespace, Name: binding.Spec.Offer,
 	}, &offer); err != nil {
-		if isNotFoundOrGone(err) {
+		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			logger.V(0).Error(err, "offer-not-found", lkNamespace, req.Namespace,
 				lkName, binding.Spec.Offer)
 

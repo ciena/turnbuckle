@@ -16,30 +16,11 @@ limitations under the License.
 
 package constraint
 
-import (
-	"errors"
-
-	kerr "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 const (
 	lkName      = "name"
 	lkNamespace = "namespace"
 	apiError    = "api-error"
 )
-
-func isNotFoundOrGone(err error) bool {
-	var statusError *kerr.StatusError
-
-	ok := errors.As(err, &statusError)
-	if !ok {
-		return false
-	}
-
-	return statusError.ErrStatus.Reason == metav1.StatusReasonNotFound ||
-		statusError.ErrStatus.Reason == metav1.StatusReasonGone
-}
 
 func areStringSlicesEqual(a, b []string) bool {
 	// if both are nil then consider them equal
