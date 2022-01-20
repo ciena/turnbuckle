@@ -17,7 +17,7 @@ limitations under the License.
 package types
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -33,6 +33,8 @@ type Endpoint struct {
 	IP        string
 }
 
+// String returns the string representation of the Endpoint.
+// nolint:gocritic
 func (ep Endpoint) String() string {
 	var buf strings.Builder
 
@@ -47,11 +49,14 @@ func (ep Endpoint) String() string {
 	} else if ep.Cluster != "" {
 		buf.WriteString("default:")
 	}
+
 	if ep.Kind != "" {
 		buf.WriteString(ep.Kind)
 		buf.WriteString("/")
 	}
+
 	buf.WriteString(ep.Name)
+
 	if ep.IP != "" {
 		buf.WriteString("[")
 		buf.WriteString(ep.IP)
@@ -61,7 +66,14 @@ func (ep Endpoint) String() string {
 	return buf.String()
 }
 
-var endpointRE = regexp.MustCompile(`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`)
+var (
+	// nolint:lll
+	endpointRE = regexp.MustCompile(`^((([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9-]*):)?(([a-zA-Z0-9_-]*)/)?([a-zA-Z0-9_-]+)(\[([0-9.]*)\])?$`)
+
+	// ErrInvalidEndpoint is returned when an attempt to parse an invalid
+	// string representation of an EndPoint is made.
+	ErrInvalidEndpoint = errors.New("invaalid-endpoint")
+)
 
 // ParseEndpoint parses a string representation of an endpoint
 // to a Endpoint.
@@ -72,8 +84,9 @@ func ParseEndpoint(in string) (*Endpoint, error) {
 
 	// fmt.Printf("%+#v\n", parts)
 	if len(parts) == 0 {
-		return nil, fmt.Errorf(`invalid endpoint "%s"`, in)
+		return nil, ErrInvalidEndpoint
 	}
+
 	if len(parts) > 0 {
 		ep.Cluster = parts[3]
 		ep.Namespace = parts[4]
@@ -81,9 +94,13 @@ func ParseEndpoint(in string) (*Endpoint, error) {
 		ep.Name = parts[7]
 		ep.IP = parts[9]
 	}
+
 	return &ep, nil
 }
 
+// FromRuleProvider returns the Endpoint for the givne rule provider
+// target.
+// nolint:gocritic
 func FromRuleProvider(ruleProviderEP ruleprovider.Target) Endpoint {
 	return Endpoint{
 		Cluster:   ruleProviderEP.Cluster,
@@ -93,6 +110,9 @@ func FromRuleProvider(ruleProviderEP ruleprovider.Target) Endpoint {
 	}
 }
 
+// ToRuleProvider returns a rule provider target that represents the
+// given ruleprovider Target.
+// nolint:gocritic
 func ToRuleProvider(endpoint Endpoint) ruleprovider.Target {
 	return ruleprovider.Target{
 		Cluster:   endpoint.Cluster,

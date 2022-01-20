@@ -94,13 +94,14 @@ func (r ReferenceList) Contains(ref *Reference) bool {
 func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 	// Define a closer (nested function) that is used to increment
 	// the counters that represent the iterators through the permutations
-	var inc func(list []ReferenceList, refIdxs []int)
-	inc = func(list []ReferenceList, refIdxs []int) {
+	inc := func(list []ReferenceList, refIdxs []int) {
 		for i := len(refIdxs) - 1; i >= 0; i-- {
 			if i == 0 || refIdxs[i] < len(list[i])-1 {
 				refIdxs[i]++
+
 				return
 			}
+
 			refIdxs[i] = 0
 		}
 	}
