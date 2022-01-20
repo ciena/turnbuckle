@@ -1,200 +1,230 @@
-package types
+/*
+Copyright 2022 Ciena Corporation.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+imitations under the License.
+*/
+
+package types_test
 
 import (
-	"encoding/json"
 	"testing"
+
+	"github.com/ciena/turnbuckle/internal/pkg/types"
+	"github.com/stretchr/testify/assert"
 )
 
-type epTestValues struct {
-	EP            Endpoint
-	String        string
+type epTest struct {
+	Name          string
+	EP            types.Endpoint
+	AsString      string
 	ErrorExpected bool
 }
 
-func toJSON(in interface{}) string {
-	bytes, err := json.Marshal(in)
-	if err != nil {
-		return ""
-	}
-	return string(bytes)
-}
-
 func TestParseEndpoint(t *testing.T) {
-	vals := []epTestValues{
+	t.Parallel()
+
+	tests := []epTest{
 		{
-			String: "name",
-			EP: Endpoint{
+			Name:     "name only",
+			AsString: "name",
+			EP: types.Endpoint{
 				Name: "name",
 			},
 		},
 		{
-			String: "kind/name",
-			EP: Endpoint{
+			Name:     "kind and name",
+			AsString: "kind/name",
+			EP: types.Endpoint{
 				Kind: "kind",
 				Name: "name",
 			},
 		},
 		{
-			String: "namespace:name",
-			EP: Endpoint{
+			Name:     "namespace and name",
+			AsString: "namespace:name",
+			EP: types.Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
 		{
-			String: "name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "name and IP",
+			AsString: "name[1.2.3.4]",
+			EP: types.Endpoint{
 				Name: "name",
 				IP:   "1.2.3.4",
 			},
 		},
 		{
-			String: "cluster/:name",
-			EP: Endpoint{
+			Name:     "cluster and name",
+			AsString: "cluster/:name",
+			EP: types.Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 			},
 		},
 		{
-			String: "cluster/namespace:name",
-			EP: Endpoint{
+			Name:     "cluster, namespace, and name",
+			AsString: "cluster/namespace:name",
+			EP: types.Endpoint{
 				Cluster:   "cluster",
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
 		{
-			String: "cluster/:name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "cluster, name, and IP",
+			AsString: "cluster/:name[1.2.3.4]",
+			EP: types.Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 				IP:      "1.2.3.4",
 			},
 		},
 		{
-			String: "namespace:name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "namespace, name, and IP",
+			AsString: "namespace:name[1.2.3.4]",
+			EP: types.Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 				IP:        "1.2.3.4",
 			},
 		},
 		{
-			String:        "",
-			EP:            Endpoint{},
+			Name:          "empty string",
+			AsString:      "",
+			EP:            types.Endpoint{},
 			ErrorExpected: true,
 		},
 		{
-			String:        "[1.2.3.4]",
-			EP:            Endpoint{},
+			Name:          "IP only",
+			AsString:      "[1.2.3.4]",
+			EP:            types.Endpoint{},
 			ErrorExpected: true,
 		},
 		{
-			String:        "name[1.a.3.4]",
-			EP:            Endpoint{},
+			Name:          "name and invalid IP",
+			AsString:      "name[1.a.3.4]",
+			EP:            types.Endpoint{},
 			ErrorExpected: true,
 		},
 		{
-			String:        "invalid&char",
-			EP:            Endpoint{},
+			Name:          "invalid character",
+			AsString:      "invalid&char",
+			EP:            types.Endpoint{},
 			ErrorExpected: true,
 		},
 	}
-	for _, val := range vals {
-		r, err := ParseEndpoint(val.String)
-		if val.ErrorExpected && err == nil {
-			t.Errorf("expected error when parsing Endpoint string '%s', but got none",
-				val.String)
-			continue
-		}
-		if !val.ErrorExpected && err != nil {
-			t.Errorf("unexpected error when parsing Endpoint string '%s', but got '%s'",
-				val.String, err.Error())
-			continue
-		}
-		if val.ErrorExpected && err != nil {
-			continue
-		}
-		if *r != val.EP {
-			t.Errorf("unexpected results when parsing Endpoint string '%s', expected '%s', got '%s'",
-				val.String, toJSON(val.EP), toJSON(r))
-		}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			r, err := types.ParseEndpoint(tc.AsString)
+			if tc.ErrorExpected {
+				assert.NotNil(t, err, "expected error no seen")
+
+				return
+			}
+
+			assert.Nil(t, err, "unexpected error returned")
+			assert.Equal(t, tc.EP, *r, "invalid enpoint parse")
+		})
 	}
 }
 
-func TestEndpointString(t *testing.T) {
-	vals := []epTestValues{
+func TestEndpointToString(t *testing.T) {
+	t.Parallel()
+
+	tests := []epTest{
 		{
-			String: "name",
-			EP: Endpoint{
+			Name:     "name only",
+			AsString: "name",
+			EP: types.Endpoint{
 				Name: "name",
 			},
 		},
 		{
-			String: "kind/name",
-			EP: Endpoint{
+			Name:     "kind and name",
+			AsString: "kind/name",
+			EP: types.Endpoint{
 				Kind: "kind",
 				Name: "name",
 			},
 		},
 		{
-			String: "namespace:name",
-			EP: Endpoint{
+			Name:     "namespace and name",
+			AsString: "namespace:name",
+			EP: types.Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
 		{
-			String: "name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "name and IP",
+			AsString: "name[1.2.3.4]",
+			EP: types.Endpoint{
 				Name: "name",
 				IP:   "1.2.3.4",
 			},
 		},
 		{
-			String: "cluster/default:name",
-			EP: Endpoint{
+			Name:     "cluster and name",
+			AsString: "cluster/default:name",
+			EP: types.Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 			},
 		},
 		{
-			String: "cluster/namespace:name",
-			EP: Endpoint{
+			Name:     "cluster, namespace, and name",
+			AsString: "cluster/namespace:name",
+			EP: types.Endpoint{
 				Cluster:   "cluster",
 				Namespace: "namespace",
 				Name:      "name",
 			},
 		},
 		{
-			String: "cluster/default:name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "cluster, name, and IP",
+			AsString: "cluster/default:name[1.2.3.4]",
+			EP: types.Endpoint{
 				Cluster: "cluster",
 				Name:    "name",
 				IP:      "1.2.3.4",
 			},
 		},
 		{
-			String: "namespace:name[1.2.3.4]",
-			EP: Endpoint{
+			Name:     "namespace, name, and IP",
+			AsString: "namespace:name[1.2.3.4]",
+			EP: types.Endpoint{
 				Namespace: "namespace",
 				Name:      "name",
 				IP:        "1.2.3.4",
 			},
 		},
 		{
-			String: "",
-			EP:     Endpoint{},
+			Name:     "empty string",
+			AsString: "",
+			EP:       types.Endpoint{},
 		},
 	}
 
-	for _, val := range vals {
-		if val.ErrorExpected {
-			continue
-		}
-		s := val.EP.String()
-		if s != val.String {
-			t.Errorf("expected '%s' got '%s'", val.String, s)
-		}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			s := tc.EP.String()
+			assert.Equal(t, tc.AsString, s)
+		})
 	}
 }

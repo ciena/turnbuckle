@@ -44,9 +44,11 @@ type preFilterState struct {
 	node string
 }
 
-var _ framework.PreFilterPlugin = &ConstraintPolicyScheduling{}
-var _ framework.ScorePlugin = &ConstraintPolicyScheduling{}
-var _ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
+var (
+	_ framework.PreFilterPlugin  = &ConstraintPolicyScheduling{}
+	_ framework.ScorePlugin      = &ConstraintPolicyScheduling{}
+	_ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
+)
 
 func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
@@ -120,7 +122,6 @@ func (s *preFilterState) Clone() framework.StateData {
 }
 
 func (c *ConstraintPolicyScheduling) createPreFilterState(ctx context.Context, pod *v1.Pod) (*preFilterState, *framework.Status) {
-
 	allNodes, err := c.fh.SnapshotSharedLister().NodeInfos().List()
 	if err != nil {
 		return nil, framework.AsStatus(err)
@@ -192,11 +193,10 @@ func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions
 	return nil
 }
 
-// PostFilter is called when no node can be assigned to the pod
+// PostFilter is called when no node can be assigned to the pod.
 func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
 	state *framework.CycleState, pod *v1.Pod,
 	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
-
 	c.log.V(1).Info("post-filter", "pod", pod.Name)
 
 	assignmentState, err := getPreFilterState(state)
