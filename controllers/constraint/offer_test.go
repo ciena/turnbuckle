@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	cpv1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
 	controllers "github.com/ciena/turnbuckle/controllers/constraint"
+	cpv1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	ctypes "github.com/ciena/turnbuckle/pkg/types"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
