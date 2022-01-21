@@ -87,8 +87,11 @@ func (s *ConstraintPolicyScheduler) processRequeueEvents() bool {
 	if quit {
 		return false
 	}
+
 	defer s.podRequeueQueue.Done(item)
+
 	s.processRequeue(item)
+
 	return true
 }
 
@@ -169,7 +172,9 @@ func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 	if quit {
 		return false
 	}
+
 	defer s.podRequeueQueue.Done(item)
+
 	return s.processRequeue(item)
 }
 
@@ -219,27 +224,33 @@ retry:
 // find the best node for the pod.
 func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
 	s.log.V(1).Info("find-best-node", "pod", pod.Name)
+
 	s.constraintPolicyMutex.Lock()
 	defer s.constraintPolicyMutex.Unlock()
-	if node, err := s.findFit(pod, feasibleNodes); err != nil {
+
+	node, err := s.findFit(pod, feasibleNodes)
+
+	switch {
+	case err == ErrNoOffersAvailable:
 		// if no offers are matched for the pod, return the existing feasible nodes
-		if err == ErrNoOffersAvailable {
-			if len(feasibleNodes) > 0 {
-				return feasibleNodes[0], nil
-			}
-			return nil, nil
+		if len(feasibleNodes) > 0 {
+			return feasibleNodes[0], nil
 		}
+		return nil, nil
+
+	case err != nil:
 		s.log.V(1).Info("scheduler-plugin", "no-nodes-available-to-schedule-pod", pod.Name)
 
 		return nil, nil
-	} else {
+
+	case err == nil:
 		if node == nil {
 			s.log.V(1).Info("scheduler-plugin", "pod-waiting-for-planner-assignment", pod.Name)
 			return nil, nil
 		}
-
-		return node, nil
 	}
+
+	return node, nil
 }
 
 func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {

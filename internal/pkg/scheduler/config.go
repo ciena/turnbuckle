@@ -36,8 +36,8 @@ type configSpec struct {
 var config configSpec = configSpec{
 	Debug:               true,
 	NumRetriesOnFailure: 3,
-	MinDelayOnFailure:   time.Duration(30 * time.Second),
-	MaxDelayOnFailure:   time.Duration(time.Minute),
+	MinDelayOnFailure:   30 * time.Second,
+	MaxDelayOnFailure:   time.Minute,
 	FallbackOnNoOffers:  false,
 	RetryOnNoOffers:     false,
 }

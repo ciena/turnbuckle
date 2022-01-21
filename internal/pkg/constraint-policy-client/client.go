@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	constraintv1alpha1 "github.com/ciena/turnbuckle/apis/constraint/v1alpha1"
+	constraintv1alpha1 "github.com/ciena/turnbuckle/pkg/apis/constraint/v1alpha1"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
 )
 
@@ -35,7 +36,7 @@ type constraintPolicyClient struct {
 
 func init() {
 	v1.AddToGroupVersion(Scheme, constraintv1alpha1.GroupVersion)
-	constraintv1alpha1.AddToScheme(Scheme)
+	utilruntime.Must(constraintv1alpha1.AddToScheme(Scheme))
 }
 
 func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
@@ -49,17 +50,17 @@ func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
 
 func newConstraintClientForConfig(c *rest.Config) (rest.Interface, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
-		return nil, err
-	}
+	setConfigDefaults(&config)
+
 	client, err := rest.RESTClientFor(&config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create REST client: %w", err)
 	}
+
 	return client, nil
 }
 
-func setConfigDefaults(config *rest.Config) error {
+func setConfigDefaults(config *rest.Config) {
 	gv := constraintv1alpha1.GroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
@@ -67,8 +68,6 @@ func setConfigDefaults(config *rest.Config) error {
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
-
-	return nil
 }
 
 func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context, namespace, name string, opts v1.GetOptions) (result *constraintv1alpha1.ConstraintPolicyBinding, err error) {
@@ -80,6 +79,7 @@ func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context,
 		VersionedParams(&opts, ParameterCodec).
 		Do(ctx).
 		Into(result)
+
 	return
 }
 
@@ -92,6 +92,7 @@ func (c *constraintPolicyClient) GetConstraintPolicyOffer(ctx context.Context, n
 		VersionedParams(&opts, ParameterCodec).
 		Do(ctx).
 		Into(result)
+
 	return
 }
 
@@ -104,15 +105,18 @@ func (c *constraintPolicyClient) GetConstraintPolicy(ctx context.Context, namesp
 		VersionedParams(&opts, ParameterCodec).
 		Do(ctx).
 		Into(result)
+
 	return
 }
 
 func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyBindingList, err error) {
 	result = &constraintv1alpha1.ConstraintPolicyBindingList{}
 	var timeout time.Duration
+
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
+
 	err = c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicybindings").
@@ -120,15 +124,18 @@ func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Contex
 		Timeout(timeout).
 		Do(ctx).
 		Into(result)
+
 	return
 }
 
 func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyOfferList, err error) {
 	result = &constraintv1alpha1.ConstraintPolicyOfferList{}
 	var timeout time.Duration
+
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
+
 	err = c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicyoffers").
@@ -136,15 +143,18 @@ func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context,
 		Timeout(timeout).
 		Do(ctx).
 		Into(result)
+
 	return
 }
 
 func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyList, err error) {
 	result = &constraintv1alpha1.ConstraintPolicyList{}
 	var timeout time.Duration
+
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
+
 	err = c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicies").
@@ -152,5 +162,6 @@ func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, nam
 		Timeout(timeout).
 		Do(ctx).
 		Into(result)
+
 	return
 }

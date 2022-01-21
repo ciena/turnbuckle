@@ -47,6 +47,23 @@ spec:
 apiVersion: constraint.ciena.com/v1
 kind: CostProvider
 metadata:
+  name: cpucost-server
+  namespace: default
+spec:
+  priority: 11
+  rule: cpu-count
+  target: ".*:.*:.*:.*:hello-server.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 1
+   - node: ".*:.*worker$"
+     cost: 5
+   - node: ".*:.*"
+     cost: 1
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
   name: jittercost
   namespace: default
 spec:

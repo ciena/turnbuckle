@@ -127,10 +127,10 @@ func (c *ConstraintPolicyScheduling) createPreFilterState(ctx context.Context, p
 		return nil, framework.AsStatus(err)
 	}
 
-	var eligibleNodes []*v1.Node
+	eligibleNodes := make([]*v1.Node, len(allNodes))
 
-	for _, nodeInfo := range allNodes {
-		eligibleNodes = append(eligibleNodes, nodeInfo.Node())
+	for i, nodeInfo := range allNodes {
+		eligibleNodes[i] = nodeInfo.Node()
 	}
 
 	if len(eligibleNodes) == 0 {

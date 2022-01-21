@@ -182,20 +182,20 @@ ifeq (,$(shell which protoc 2>/dev/null))
 	$(warn Please install protobuf compiler : https://grpc.io/docs/protoc-installation)
 endif
 
-apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
+pkg/apis/ruleprovider/ruleprovider.pb.go: apis/ruleprovider.proto
 	protoc \
 		-I ./apis \
 		--go_out=plugins=grpc:. \
 		$<
 
-apis/underlay/underlay.pb.go: apis/underlay.proto
+pkg/apis/underlay/underlay.pb.go: apis/underlay.proto
 	protoc \
 		-I ./apis \
 		--go_out=plugins=grpc:. \
 		$<
 
 .PHONY: protos ## Generate Go code from the protocol buffer definitions
-protos: apis/ruleprovider/ruleprovider.pb.go apis/underlay/underlay.pb.go
+protos: pkg/apis/ruleprovider/ruleprovider.pb.go pkg/apis/underlay/underlay.pb.go
 
 .PHONY: clean
 clean: ## Delete build and/or temporary artifacts
