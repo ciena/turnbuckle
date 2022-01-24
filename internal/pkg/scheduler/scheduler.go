@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
+// ConstraintPolicyScheduler defines the runtime information used by the
+// constraint policy scheduler.
 type ConstraintPolicyScheduler struct {
 	options               ConstraintPolicySchedulerOptions
 	log                   logr.Logger
@@ -28,31 +32,43 @@ type ConstraintPolicyScheduler struct {
 	podRequeueMutex       sync.Mutex
 }
 
+// ConstraintPolicySchedulerOptions defines the configuration options for the
+// constraint policy scheduler.
 type ConstraintPolicySchedulerOptions struct {
-	Planner             bool
-	NumRetriesOnFailure int
-	MinDelayOnFailure   time.Duration
-	MaxDelayOnFailure   time.Duration
-	FallbackOnNoOffers  bool
-	RetryOnNoOffers     bool
+	Planner              bool
+	NumRetriesOnFailure  int
+	MinDelayOnFailure    time.Duration
+	MaxDelayOnFailure    time.Duration
+	FallbackOnNoOffers   bool
+	RetryOnNoOffers      bool
+	RequeuePeriod        time.Duration
+	PodQueueSize         uint
+	PlannerNodeQueueSize uint
 }
 
+// NewScheduler create a new instance of the schedule logic with the
+// given set or parameters.
 func NewScheduler(options ConstraintPolicySchedulerOptions,
 	clientset kubernetes.Interface,
 	fh framework.Handle,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
 	log logr.Logger) *ConstraintPolicyScheduler {
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
+
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
-	podQueue := make(chan *v1.Pod, 300)
+	podQueue := make(chan *v1.Pod, options.PodQueueSize)
 
 	deletePodCallback = func(pod *v1.Pod) {
 		constraintPolicyScheduler.handlePodDelete(pod)
 	}
 
-	defaultPlanner := NewPlannerWithPodCallbacks(ConstraintPolicySchedulerPlannerOptions{},
-		clientset, constraintPolicyClient, log.WithName("default-planner"),
-		addPodCallback, nil, deletePodCallback)
+	defaultPlanner := NewPlanner(
+		ConstraintPolicySchedulerPlannerOptions{
+			NodeQueueSize:     options.PlannerNodeQueueSize,
+			AddPodCallback:    addPodCallback,
+			DeletePodCallback: deletePodCallback,
+		},
+		clientset, constraintPolicyClient, log.WithName("default-planner"))
 
 	constraintPolicyScheduler.options = options
 	constraintPolicyScheduler.fh = fh
@@ -60,9 +76,12 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	constraintPolicyScheduler.log = log
 	constraintPolicyScheduler.podQueue = podQueue
 	constraintPolicyScheduler.quit = make(chan struct{})
-	constraintPolicyScheduler.podRequeueQueue = workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(options.MinDelayOnFailure,
-		options.MaxDelayOnFailure))
+	constraintPolicyScheduler.podRequeueQueue = workqueue.
+		NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(
+			options.MinDelayOnFailure,
+			options.MaxDelayOnFailure))
 	constraintPolicyScheduler.podRequeueMap = make(map[ObjectMeta]struct{})
+
 	return constraintPolicyScheduler
 }
 
@@ -72,11 +91,13 @@ func (s *ConstraintPolicyScheduler) handlePodDelete(pod *v1.Pod) {
 	delete(s.podRequeueMap, ObjectMeta{Name: pod.Name, Namespace: pod.Namespace})
 }
 
+// Stop halts the constraint policy scheduler.
 func (s *ConstraintPolicyScheduler) Stop() {
 	s.podRequeueQueue.ShutDown()
 	close(s.quit)
 }
 
+// Start invokes the constraint policy scheduler as a go routine.
 func (s *ConstraintPolicyScheduler) Start() {
 	go s.listenForPodRequeueEvents()
 }
@@ -100,12 +121,15 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 	if !ok {
 		s.log.V(1).Info("pod-requeue-item-not-a-pod")
 		s.podRequeueQueue.Forget(item)
+
 		return false
 	}
 	// if the item is not in the requeue map, forget it
 	s.podRequeueMutex.Lock()
 	defer s.podRequeueMutex.Unlock()
+
 	forgetItem := true
+
 	defer func() {
 		if forgetItem {
 			s.podRequeueQueue.Forget(item)
@@ -113,41 +137,58 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 		}
 	}()
 
-	pod, err := s.defaultPlanner.GetClientset().CoreV1().Pods(data.Namespace).Get(context.Background(), data.Name, metav1.GetOptions{})
+	pod, err := s.defaultPlanner.
+		GetClientset().CoreV1().Pods(data.Namespace).
+		Get(context.Background(), data.Name, metav1.GetOptions{})
 	if err != nil {
 		s.log.Error(err, "pod-requeue-pod-get-failure", "pod", data.Name)
+
 		return false
 	}
+
 	if !s.podCheckScheduler(pod) {
 		s.log.V(1).Info("pod-requeue-scheduler-mismatch", "pod", pod.Name)
+
 		return false
 	}
+
 	if pod.Spec.NodeName != "" {
 		s.log.V(1).Info("pod-requeue-node-assigned", "pod", pod.Name, "node", pod.Spec.NodeName)
+
 		return false
 	}
+
 	if pod.Status.Phase != v1.PodPending {
 		s.log.V(1).Info("pod-requeue-status-not-pending", "pod", pod.Name)
+
 		return false
 	}
+
 	if _, ok := s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
 		s.log.V(1).Info("pod-requeue-delete", "pod-probably-deleted", pod.Name)
+
 		return false
 	}
+
 	numRequeues := s.podRequeueQueue.NumRequeues(item)
 	if s.options.NumRetriesOnFailure <= 0 || numRequeues <= s.options.NumRetriesOnFailure {
 		forgetItem = false
 		// add back the pod to the podqueue
 		s.log.V(1).Info("pod-requeue-add", "pod", pod.Name, "num-requeues", numRequeues)
+
 		return true
 	}
+
 	s.log.V(1).Info("pod-requeue-requeues-exceeded", "pod", pod.Name)
+
 	return false
 }
 
 func (s *ConstraintPolicyScheduler) listenForPodRequeueEvents() {
 	defer s.podRequeueQueue.ShutDown()
-	go wait.Until(s.requeueWorker, time.Second*5, s.quit)
+
+	go wait.Until(s.requeueWorker, s.options.RequeuePeriod, s.quit)
+
 	<-s.quit
 }
 
@@ -159,9 +200,11 @@ func (s *ConstraintPolicyScheduler) requeueWorker() {
 // requeue pod into the worker queue.
 func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 	s.podRequeueMutex.Lock()
+
 	if _, ok := s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
 		s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}] = struct{}{}
 	}
+
 	s.log.V(1).Info("pod-requeue", "pod", pod.Name, "namespace", pod.Namespace)
 	s.podRequeueQueue.AddRateLimited(pod)
 	s.podRequeueMutex.Unlock()
@@ -190,38 +233,55 @@ func (s *ConstraintPolicyScheduler) podCheckScheduler(pod *v1.Pod) bool {
 }
 
 func (s *ConstraintPolicyScheduler) findFit(pod *v1.Pod, eligibleNodes []*v1.Node) (*v1.Node, error) {
-retry:
-	nodeInstance, err := s.defaultPlanner.FindBestNode(pod, eligibleNodes)
-	if err == ErrNoOffersAvailable {
-		s.log.V(1).Info("no-offers-found-for-pod", "pod", pod.Name)
-		if s.options.FallbackOnNoOffers {
-			s.log.V(1).Info("random-assignment", "pod", pod.Name)
-			return s.defaultPlanner.FindFitRandom(pod, eligibleNodes)
+	var nodeInstance *v1.Node
+
+	var err error
+
+	for {
+		nodeInstance, err = s.defaultPlanner.FindBestNode(pod, eligibleNodes)
+		if errors.Is(err, ErrNoOffers) {
+			s.log.V(1).Info("no-offers-found-for-pod", "pod", pod.Name)
+
+			if s.options.FallbackOnNoOffers {
+				s.log.V(1).Info("random-assignment", "pod", pod.Name)
+
+				return s.defaultPlanner.FindFitRandom(pod, eligibleNodes)
+			}
+
+			if s.options.RetryOnNoOffers {
+				s.log.V(1).Info("requeuing-for-retry", "pod", pod.Name)
+
+				if !s.requeue(pod) {
+					return nil, err
+				}
+
+				continue
+			}
+
+			return nil, err
 		}
-		if s.options.RetryOnNoOffers {
+
+		if err != nil {
+			s.log.Error(err, "nodes-not-found", "pod", pod.Name)
 			s.log.V(1).Info("requeuing-for-retry", "pod", pod.Name)
+
 			if !s.requeue(pod) {
 				return nil, err
 			}
-			goto retry
+
+			continue
 		}
-		return nil, err
-	}
-	if err != nil {
-		s.log.Error(err, "nodes-not-found", "pod", pod.Name)
-		s.log.V(1).Info("requeuing-for-retry", "pod", pod.Name)
-		if !s.requeue(pod) {
-			return nil, err
-		}
-		goto retry
+
+		break
 	}
 	// if the pod was requeued, then cleanup the entry from requeue map
 	s.requeueFixup(pod)
 	s.log.V(1).Info("found-matching", "node", nodeInstance.Name, "pod", pod.Name)
+
 	return nodeInstance, nil
 }
 
-// find the best node for the pod.
+// FindBestNode finds the best node for the pod.
 func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
 	s.log.V(1).Info("find-best-node", "pod", pod.Name)
 
@@ -230,24 +290,25 @@ func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v
 
 	node, err := s.findFit(pod, feasibleNodes)
 
-	switch {
-	case err == ErrNoOffersAvailable:
+	if errors.Is(err, ErrNoOffers) {
 		// if no offers are matched for the pod, return the existing feasible nodes
 		if len(feasibleNodes) > 0 {
 			return feasibleNodes[0], nil
 		}
-		return nil, nil
 
-	case err != nil:
+		return nil, nil
+	}
+
+	if err != nil {
 		s.log.V(1).Info("scheduler-plugin", "no-nodes-available-to-schedule-pod", pod.Name)
 
 		return nil, nil
+	}
 
-	case err == nil:
-		if node == nil {
-			s.log.V(1).Info("scheduler-plugin", "pod-waiting-for-planner-assignment", pod.Name)
-			return nil, nil
-		}
+	if node == nil {
+		s.log.V(1).Info("scheduler-plugin", "pod-waiting-for-planner-assignment", pod.Name)
+
+		return nil, nil
 	}
 
 	return node, nil
@@ -255,6 +316,7 @@ func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v
 
 func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
 	timestamp := time.Now().UTC()
+
 	_, err := s.defaultPlanner.GetClientset().CoreV1().Events(p.Namespace).Create(context.Background(),
 		&v1.Event{
 			Count:          1,
@@ -278,7 +340,8 @@ func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
 		},
 		metav1.CreateOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating event: %w", err)
 	}
+
 	return nil
 }

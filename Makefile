@@ -134,7 +134,7 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: ## Run status code analysis against code.
-	golangci-lint run ./...
+	golangci-lint run -c .golangci.yaml --sort-results --tests --timeout 15m ./...
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.

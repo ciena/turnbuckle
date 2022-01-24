@@ -18,18 +18,19 @@ package main
 import (
 	"os"
 
-	constraintPolicyScheduling "github.com/ciena/turnbuckle/internal/pkg/scheduler"
+	cps "github.com/ciena/turnbuckle/internal/pkg/scheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
 )
 
 func main() {
+	config := cps.DefaultConstraintPolicySchedulerConfig()
 	// Register custom plugins to the scheduler framework.
 	command := app.NewSchedulerCommand(
-		app.WithPlugin(constraintPolicyScheduling.Name, constraintPolicyScheduling.New),
+		app.WithPlugin(cps.Name, config.New),
 	)
 
-	command.Flags().AddFlagSet(constraintPolicyScheduling.AddFlags(command))
+	command.Flags().AddFlagSet(cps.AddFlags(command))
 
 	logs.InitLogs()
 	defer logs.FlushLogs()

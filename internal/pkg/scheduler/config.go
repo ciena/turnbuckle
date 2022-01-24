@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package scheduler
 
 import (
@@ -24,42 +25,58 @@ import (
 	"k8s.io/component-base/term"
 )
 
-type configSpec struct {
-	Debug               bool
-	MinDelayOnFailure   time.Duration
-	MaxDelayOnFailure   time.Duration
-	NumRetriesOnFailure int
-	FallbackOnNoOffers  bool
-	RetryOnNoOffers     bool
+type ConstraintPolicySchedulerConfig struct {
+	Debug                bool
+	MinDelayOnFailure    time.Duration
+	MaxDelayOnFailure    time.Duration
+	NumRetriesOnFailure  int
+	FallbackOnNoOffers   bool
+	RetryOnNoOffers      bool
+	RequeuePeriod        time.Duration
+	PodQueueSize         uint
+	PlannerNodeQueueSize uint
 }
 
-var config configSpec = configSpec{
-	Debug:               true,
-	NumRetriesOnFailure: 3,
-	MinDelayOnFailure:   30 * time.Second,
-	MaxDelayOnFailure:   time.Minute,
-	FallbackOnNoOffers:  false,
-	RetryOnNoOffers:     false,
+func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerConfig {
+	// nolint:gomnd
+	return &ConstraintPolicySchedulerConfig{
+		Debug:                true,
+		NumRetriesOnFailure:  3,
+		MinDelayOnFailure:    30 * time.Second,
+		MaxDelayOnFailure:    time.Minute,
+		FallbackOnNoOffers:   false,
+		RetryOnNoOffers:      false,
+		RequeuePeriod:        5 * time.Second,
+		PodQueueSize:         300,
+		PlannerNodeQueueSize: 300,
+	}
 }
 
+// AddFlags adds scheduler specific command line flags.
 func AddFlags(cmd *cobra.Command) *flag.FlagSet {
 	var nfs cliflag.NamedFlagSets
 
+	defaults := DefaultConstraintPolicySchedulerConfig()
+
 	fs := nfs.FlagSet("Constraint policy flags")
 
-	fs.BoolVar(&config.Debug, "debug", config.Debug, "Enable debug logs")
-	fs.BoolVar(&config.FallbackOnNoOffers,
-		"schedule-on-no-offers", config.FallbackOnNoOffers,
+	fs.Bool("debug", defaults.Debug, "Enable debug logs")
+	fs.Bool("schedule-on-no-offers", defaults.FallbackOnNoOffers,
 		"Schedule a pod if no offers are found")
-	fs.BoolVar(&config.RetryOnNoOffers,
-		"retry-on-no-offers", config.RetryOnNoOffers,
+	fs.Bool("retry-on-no-offers", defaults.RetryOnNoOffers,
 		"Keep retrying to schedule a pod if no offers are found")
-	fs.DurationVar(&config.MinDelayOnFailure, "min-delay-on-failure",
-		config.MinDelayOnFailure, "The minimum delay interval for rescheduling pods on failures.")
-	fs.DurationVar(&config.MaxDelayOnFailure, "max-delay-on-failure",
-		config.MaxDelayOnFailure, "The maximum delay interval before rescheduling pods on failures.")
-	fs.IntVar(&config.NumRetriesOnFailure, "num-retries-on-failure", config.NumRetriesOnFailure,
+	fs.Duration("min-delay-on-failure",
+		defaults.MinDelayOnFailure, "The minimum delay interval for rescheduling pods on failures.")
+	fs.Duration("max-delay-on-failure",
+		defaults.MaxDelayOnFailure, "The maximum delay interval before rescheduling pods on failures.")
+	fs.Int("num-retries-on-failure", defaults.NumRetriesOnFailure,
 		"Number of retries to schedule the pod on scheduling failures. Use <= 0 to retry indefinitely.")
+	fs.Duration("requeue-period",
+		defaults.RequeuePeriod, "How often schedule workers should be requeued.")
+	fs.Uint("pod-queue-size",
+		defaults.PodQueueSize, "Size of queue for maintaining incoming requests")
+	fs.Uint("planner-node-queue-size",
+		defaults.PlannerNodeQueueSize, "Size of queue for maintaining incoming requests")
 
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 

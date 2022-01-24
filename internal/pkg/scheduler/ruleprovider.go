@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,34 +12,45 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// RuleProvider declares the methods that can be called against a rule provider.
 type RuleProvider interface {
-	EndpointCost(src *types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]NodeAndCost, error)
+
+	// EndpointCost calculates the cost of use each of the eligible nodes.
+	EndpointCost(src *types.Reference, eligibleNodes []string,
+		peerNodes []string, request, limit string) ([]NodeAndCost, error)
 }
 
 type ruleProvider struct {
 	Log         logr.Logger
 	ProviderFor string
 	Service     corev1.Service
+	DialOptions []grpc.DialOption
+	CallTimeout time.Duration
 }
 
-func (p *ruleProvider) EndpointCost(src *types.Reference, eligibleNodes []string, peerNodes []string, request, limit string) ([]NodeAndCost, error) {
-	var gopts []grpc.DialOption
-
+// EndpointCost calculates the cost of use each of the eligible nodes.
+func (p *ruleProvider) EndpointCost(
+	src *types.Reference,
+	eligibleNodes []string,
+	peerNodes []string,
+	request, limit string) ([]NodeAndCost, error) {
 	p.Log.V(1).Info("endpointcost", "namespace", p.Service.Namespace, "name", p.Service.Name)
-
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:5309", p.Service.Name, p.Service.Namespace)
 
-	gopts = append(gopts, grpc.WithInsecure())
+	dctx, dcancel := context.WithTimeout(context.Background(), p.CallTimeout)
+	defer dcancel()
 
-	conn, err := grpc.Dial(dns, gopts...)
+	conn, err := grpc.DialContext(dctx, dns, p.DialOptions...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connecting to rule provider: %w", err)
 	}
 
+	// nolint:errcheck
 	defer conn.Close()
 
 	client := ruleprovider.NewRuleProviderClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), p.CallTimeout)
 	defer cancel()
 
 	source := ruleprovider.Target{
@@ -64,11 +74,11 @@ func (p *ruleProvider) EndpointCost(src *types.Reference, eligibleNodes []string
 
 	resp, err := client.EndpointCost(ctx, &req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error calculation endpoint cost: %w", err)
 	}
 
 	if len(resp.NodeAndCost) == 0 {
-		return nil, errors.New("No node found")
+		return nil, ErrNoNodesFound
 	}
 
 	nodeAndCost := make([]NodeAndCost, len(resp.NodeAndCost))
