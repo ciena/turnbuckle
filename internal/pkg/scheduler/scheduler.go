@@ -296,13 +296,13 @@ func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v
 			return feasibleNodes[0], nil
 		}
 
-		return nil, nil
+		return nil, err
 	}
 
 	if err != nil {
 		s.log.V(1).Info("scheduler-plugin", "no-nodes-available-to-schedule-pod", pod.Name)
 
-		return nil, nil
+		return nil, err
 	}
 
 	if node == nil {

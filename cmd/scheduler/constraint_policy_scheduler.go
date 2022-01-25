@@ -24,13 +24,14 @@ import (
 )
 
 func main() {
-	config := cps.DefaultConstraintPolicySchedulerConfig()
+	var config cps.ConstraintPolicySchedulerConfig
+
 	// Register custom plugins to the scheduler framework.
 	command := app.NewSchedulerCommand(
 		app.WithPlugin(cps.Name, config.New),
 	)
 
-	command.Flags().AddFlagSet(cps.AddFlags(command))
+	command.Flags().AddFlagSet(config.AddFlags(command))
 
 	logs.InitLogs()
 	defer logs.FlushLogs()

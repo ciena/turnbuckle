@@ -53,29 +53,29 @@ func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerConfig {
 }
 
 // AddFlags adds scheduler specific command line flags.
-func AddFlags(cmd *cobra.Command) *flag.FlagSet {
+func (config ConstraintPolicySchedulerConfig) AddFlags(cmd *cobra.Command) *flag.FlagSet {
 	var nfs cliflag.NamedFlagSets
 
 	defaults := DefaultConstraintPolicySchedulerConfig()
 
 	fs := nfs.FlagSet("Constraint policy flags")
 
-	fs.Bool("debug", defaults.Debug, "Enable debug logs")
-	fs.Bool("schedule-on-no-offers", defaults.FallbackOnNoOffers,
+	fs.BoolVar(&config.Debug, "debug", defaults.Debug, "Enable debug logs")
+	fs.BoolVar(&config.FallbackOnNoOffers, "schedule-on-no-offers", defaults.FallbackOnNoOffers,
 		"Schedule a pod if no offers are found")
-	fs.Bool("retry-on-no-offers", defaults.RetryOnNoOffers,
+	fs.BoolVar(&config.RetryOnNoOffers, "retry-on-no-offers", defaults.RetryOnNoOffers,
 		"Keep retrying to schedule a pod if no offers are found")
-	fs.Duration("min-delay-on-failure",
+	fs.DurationVar(&config.MinDelayOnFailure, "min-delay-on-failure",
 		defaults.MinDelayOnFailure, "The minimum delay interval for rescheduling pods on failures.")
-	fs.Duration("max-delay-on-failure",
+	fs.DurationVar(&config.MaxDelayOnFailure, "max-delay-on-failure",
 		defaults.MaxDelayOnFailure, "The maximum delay interval before rescheduling pods on failures.")
-	fs.Int("num-retries-on-failure", defaults.NumRetriesOnFailure,
+	fs.IntVar(&config.NumRetriesOnFailure, "num-retries-on-failure", defaults.NumRetriesOnFailure,
 		"Number of retries to schedule the pod on scheduling failures. Use <= 0 to retry indefinitely.")
-	fs.Duration("requeue-period",
+	fs.DurationVar(&config.RequeuePeriod, "requeue-period",
 		defaults.RequeuePeriod, "How often schedule workers should be requeued.")
-	fs.Uint("pod-queue-size",
+	fs.UintVar(&config.PodQueueSize, "pod-queue-size",
 		defaults.PodQueueSize, "Size of queue for maintaining incoming requests")
-	fs.Uint("planner-node-queue-size",
+	fs.UintVar(&config.PlannerNodeQueueSize, "planner-node-queue-size",
 		defaults.PlannerNodeQueueSize, "Size of queue for maintaining incoming requests")
 
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())

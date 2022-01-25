@@ -19,7 +19,6 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"os"
 
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/go-logr/logr"
@@ -58,9 +57,6 @@ var (
 func (config *ConstraintPolicySchedulerConfig) New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
-
-	fmt.Fprintf(os.Stderr, "%+#v\n", config)
-	os.Exit(1)
 
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
