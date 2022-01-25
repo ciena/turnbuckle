@@ -17,29 +17,27 @@ limitations under the License.
 package scheduler
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
-
-	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
-	cliflag "k8s.io/component-base/cli/flag"
-	"k8s.io/component-base/term"
 )
 
-type ConstraintPolicySchedulerConfig struct {
-	Debug                bool
-	MinDelayOnFailure    time.Duration
-	MaxDelayOnFailure    time.Duration
-	NumRetriesOnFailure  int
-	FallbackOnNoOffers   bool
-	RetryOnNoOffers      bool
-	RequeuePeriod        time.Duration
-	PodQueueSize         uint
-	PlannerNodeQueueSize uint
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// PluginArgs defines the parameters for ConstraintPolicyScheduling plugin
+type ConstraintPolicySchedulingArgs struct {
+	metav1.TypeMeta      `json:",inline"`
+	Debug                bool   `json:"debug,omitEmpty"`
+	MinDelayOnFailure    string `json:"minDelayOnFailure,omitEmpty"`
+	MaxDelayOnFailure    string `json:"maxDelayOnFailure,omitEmpty"`
+	NumRetriesOnFailure  int    `json:"numRetriesOnFailure,omitEmpty"`
+	FallbackOnNoOffers   bool   `json:"fallbackOnNoOffers,omitEmpty"`
+	RetryOnNoOffers      bool   `json:"retryOnNoOffers,omitEmpty"`
+	RequeuePeriod        string `json:"requeuePeriod,omitEmpty"`
+	PlannerNodeQueueSize uint   `json:"plannerNodeQueueSize,omitEmpty"`
 }
 
-func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerConfig {
+func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
 	// nolint:gomnd
-	return &ConstraintPolicySchedulerConfig{
+	return &ConstraintPolicySchedulerOptions{
 		Debug:                true,
 		NumRetriesOnFailure:  3,
 		MinDelayOnFailure:    30 * time.Second,
@@ -47,40 +45,43 @@ func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerConfig {
 		FallbackOnNoOffers:   false,
 		RetryOnNoOffers:      false,
 		RequeuePeriod:        5 * time.Second,
-		PodQueueSize:         300,
 		PlannerNodeQueueSize: 300,
 	}
 }
 
-// AddFlags adds scheduler specific command line flags.
-func (config ConstraintPolicySchedulerConfig) AddFlags(cmd *cobra.Command) *flag.FlagSet {
-	var nfs cliflag.NamedFlagSets
+func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
+	var config ConstraintPolicySchedulerOptions = *defaultConfig
 
-	defaults := DefaultConstraintPolicySchedulerConfig()
+	config.Debug = pluginConfig.Debug
+	config.FallbackOnNoOffers = pluginConfig.FallbackOnNoOffers
+	config.RetryOnNoOffers = pluginConfig.RetryOnNoOffers
 
-	fs := nfs.FlagSet("Constraint policy flags")
+	if pluginConfig.NumRetriesOnFailure > 0 {
+		config.NumRetriesOnFailure = pluginConfig.NumRetriesOnFailure
+	}
 
-	fs.BoolVar(&config.Debug, "debug", defaults.Debug, "Enable debug logs")
-	fs.BoolVar(&config.FallbackOnNoOffers, "schedule-on-no-offers", defaults.FallbackOnNoOffers,
-		"Schedule a pod if no offers are found")
-	fs.BoolVar(&config.RetryOnNoOffers, "retry-on-no-offers", defaults.RetryOnNoOffers,
-		"Keep retrying to schedule a pod if no offers are found")
-	fs.DurationVar(&config.MinDelayOnFailure, "min-delay-on-failure",
-		defaults.MinDelayOnFailure, "The minimum delay interval for rescheduling pods on failures.")
-	fs.DurationVar(&config.MaxDelayOnFailure, "max-delay-on-failure",
-		defaults.MaxDelayOnFailure, "The maximum delay interval before rescheduling pods on failures.")
-	fs.IntVar(&config.NumRetriesOnFailure, "num-retries-on-failure", defaults.NumRetriesOnFailure,
-		"Number of retries to schedule the pod on scheduling failures. Use <= 0 to retry indefinitely.")
-	fs.DurationVar(&config.RequeuePeriod, "requeue-period",
-		defaults.RequeuePeriod, "How often schedule workers should be requeued.")
-	fs.UintVar(&config.PodQueueSize, "pod-queue-size",
-		defaults.PodQueueSize, "Size of queue for maintaining incoming requests")
-	fs.UintVar(&config.PlannerNodeQueueSize, "planner-node-queue-size",
-		defaults.PlannerNodeQueueSize, "Size of queue for maintaining incoming requests")
+	minDelay, err := time.ParseDuration(pluginConfig.MinDelayOnFailure)
+	if err == nil && minDelay > time.Duration(0) {
+		config.MinDelayOnFailure = minDelay
+	}
 
-	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+	maxDelay, err := time.ParseDuration(pluginConfig.MaxDelayOnFailure)
+	if err == nil && maxDelay > time.Duration(0) {
+		config.MaxDelayOnFailure = maxDelay
+	}
 
-	cliflag.SetUsageAndHelpFunc(cmd, nfs, cols)
+	if config.MinDelayOnFailure > config.MaxDelayOnFailure {
+		config.MinDelayOnFailure = config.MaxDelayOnFailure / 2
+	}
 
-	return fs
+	requeuePeriod, err := time.ParseDuration(pluginConfig.RequeuePeriod)
+	if err == nil && requeuePeriod > time.Duration(0) {
+		config.RequeuePeriod = requeuePeriod
+	}
+
+	if pluginConfig.PlannerNodeQueueSize > 0 {
+		config.PlannerNodeQueueSize = pluginConfig.PlannerNodeQueueSize
+	}
+
+	return &config
 }

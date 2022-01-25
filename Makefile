@@ -124,6 +124,10 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+.PHONY: generate-plugin-args
+generate-plugin-args: controller-gen
+	$(CONTROLLER_GEN) object paths="./internal/pkg/scheduler/config.go"
+
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -152,7 +156,7 @@ build-%: deps-% fmt vet
 
 deps-manager: generate protos
 
-deps-scheduler: protos
+deps-scheduler: generate-plugin-args protos
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

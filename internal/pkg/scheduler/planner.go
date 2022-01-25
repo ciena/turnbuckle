@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -39,7 +40,7 @@ type ConstraintPolicySchedulerPlanner struct {
 	quit                   chan struct{}
 	nodeQueue              chan *v1.Node
 	podUpdateQueue         workqueue.RateLimitingInterface
-	podToNodeMap           map[ObjectMeta]string
+	podToNodeMap           map[ktypes.NamespacedName]string
 	constraintPolicyMutex  sync.Mutex
 }
 
@@ -53,12 +54,6 @@ type ConstraintPolicySchedulerPlannerOptions struct {
 	DeletePodCallback  func(pod *v1.Pod)
 }
 
-// ObjectMeta should this be NameSpacedNamed.
-type ObjectMeta struct {
-	Name      string
-	Namespace string
-}
-
 // NodeAndCost tuple of a node and the cost of using that node.
 type NodeAndCost struct {
 	Node string
@@ -67,7 +62,7 @@ type NodeAndCost struct {
 
 type constraintPolicyOffer struct {
 	offer         *constraintv1alpha1.ConstraintPolicyOffer
-	peerToNodeMap map[ObjectMeta]string
+	peerToNodeMap map[ktypes.NamespacedName]string
 	peerNodeNames []string
 }
 
@@ -89,7 +84,7 @@ func NewPlanner(
 		nodeQueue:              make(chan *v1.Node, options.NodeQueueSize),
 		podUpdateQueue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		quit:                   make(chan struct{}),
-		podToNodeMap:           make(map[ObjectMeta]string),
+		podToNodeMap:           make(map[ktypes.NamespacedName]string),
 	}
 
 	addFunc := func(obj interface{}) {
@@ -246,7 +241,7 @@ func (s *ConstraintPolicySchedulerPlanner) handlePodUpdate(oldPod *v1.Pod, newPo
 	defer s.constraintPolicyMutex.Unlock()
 
 	if oldPod.Status.Phase != v1.PodRunning && newPod.Status.Phase == v1.PodRunning {
-		delete(s.podToNodeMap, ObjectMeta{Name: newPod.Name, Namespace: newPod.Namespace})
+		delete(s.podToNodeMap, ktypes.NamespacedName{Name: newPod.Name, Namespace: newPod.Namespace})
 	} else if oldPod.GetDeletionTimestamp() == nil && newPod.GetDeletionTimestamp() != nil {
 		if err := s.releaseUnderlayPath(newPod); err != nil {
 			s.log.V(1).Info("handle-pod-update-enqueue-event-on-failure", "pod", newPod.Name)
@@ -315,7 +310,7 @@ func (s *ConstraintPolicySchedulerPlanner) releaseUnderlayPath(pod *v1.Pod) erro
 func (s *ConstraintPolicySchedulerPlanner) handlePodDelete(pod *v1.Pod) {
 	s.constraintPolicyMutex.Lock()
 	defer s.constraintPolicyMutex.Unlock()
-	delete(s.podToNodeMap, ObjectMeta{Name: pod.Name, Namespace: pod.Namespace})
+	delete(s.podToNodeMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
 }
 
 // ParseDuration parses a list of durations.
@@ -365,7 +360,7 @@ func matchesLabelSelector(labelSelector *metav1.LabelSelector, pod *v1.Pod) (boo
 	return labels.Set(set).AsSelector().Matches(labels.Set(pod.Labels)), nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels labels.Set) (map[ObjectMeta]string, error) {
+func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels labels.Set) (map[ktypes.NamespacedName]string, error) {
 	endpoints, err := s.clientset.CoreV1().Endpoints("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: endpointLabels.String()})
 	if err != nil {
@@ -373,10 +368,10 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels label
 	}
 
 	// this is a 1:1 as endpoing name is stored for network telemetry info
-	endpointNodeMap := make(map[ObjectMeta]string)
+	endpointNodeMap := make(map[ktypes.NamespacedName]string)
 
 	for i := range endpoints.Items {
-		endpointNodeMap[ObjectMeta{
+		endpointNodeMap[ktypes.NamespacedName{
 			Name:      endpoints.Items[i].Name,
 			Namespace: endpoints.Items[i].Namespace,
 		}] = endpoints.Items[i].Name
@@ -385,14 +380,14 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels label
 	return endpointNodeMap, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (map[ObjectMeta]string, error) {
+func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (map[ktypes.NamespacedName]string, error) {
 	pods, err := s.clientset.CoreV1().Pods("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: podLabels.String()})
 	if err != nil {
 		return nil, fmt.Errorf("error listing pods: %w", err)
 	}
 
-	podNodeMap := make(map[ObjectMeta]string)
+	podNodeMap := make(map[ktypes.NamespacedName]string)
 
 	for i := range pods.Items {
 		if pods.Items[i].Status.Phase == v1.PodFailed || pods.Items[i].DeletionTimestamp != nil {
@@ -407,7 +402,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (ma
 			podNodeName = ""
 		}
 
-		podNodeMap[ObjectMeta{Name: pods.Items[i].Name, Namespace: pods.Items[i].Namespace}] = podNodeName
+		podNodeMap[ktypes.NamespacedName{Name: pods.Items[i].Name, Namespace: pods.Items[i].Namespace}] = podNodeName
 	}
 
 	return podNodeMap, nil
@@ -415,7 +410,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (ma
 
 func (s *ConstraintPolicySchedulerPlanner) getPeers(
 	selector *constraintv1alpha1.ConstraintPolicyOfferTarget,
-) (map[ObjectMeta]string, error) {
+) (map[ktypes.NamespacedName]string, error) {
 	if selector.Kind == kindPod && selector.LabelSelector != nil {
 		set, err := metav1.LabelSelectorAsMap(selector.LabelSelector)
 		if err != nil {
@@ -442,7 +437,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeers(
 	return nil, nil
 }
 
-func getPeerNodeNames(peerToNodeMap map[ObjectMeta]string) []string {
+func getPeerNodeNames(peerToNodeMap map[ktypes.NamespacedName]string) []string {
 	nodeNames := make([]string, 0, len(peerToNodeMap))
 	visitedMap := make(map[string]struct{})
 
@@ -460,8 +455,8 @@ func getPeerNodeNames(peerToNodeMap map[ObjectMeta]string) []string {
 	return nodeNames
 }
 
-func mergePeers(p1, p2 map[ObjectMeta]string) map[ObjectMeta]string {
-	p3 := make(map[ObjectMeta]string)
+func mergePeers(p1, p2 map[ktypes.NamespacedName]string) map[ktypes.NamespacedName]string {
+	p3 := make(map[ktypes.NamespacedName]string)
 
 	for k, v := range p1 {
 		p3[k] = v
@@ -486,7 +481,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*cons
 	var offerList []*constraintPolicyOffer
 
 	for _, offer := range offers.Items {
-		var peerToNodeMap map[ObjectMeta]string
+		var peerToNodeMap map[ktypes.NamespacedName]string
 
 		var peerNodeNames []string
 
@@ -912,52 +907,6 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
 	return offerCostMap, nodeAllocationPathMap, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getNodeCost(pod *v1.Pod,
-	eligibleNodes []string, offers []*constraintPolicyOffer) (map[string]int64, error) {
-	var offerCostMap map[string]int64
-
-	for _, matchingOffer := range offers {
-		var policyRules []*constraintv1alpha1.ConstraintPolicyRule
-
-		for _, policyName := range matchingOffer.offer.Spec.Policies {
-			ctx, cancel := context.WithTimeout(context.Background(), s.options.CallTimeout)
-
-			policy, err := s.constraintPolicyClient.GetConstraintPolicy(ctx,
-				matchingOffer.offer.Namespace, string(policyName), metav1.GetOptions{})
-
-			cancel()
-
-			if err != nil {
-				s.log.Error(err, "error-getting-policy", "policy", string(policyName))
-
-				continue
-			}
-
-			policyRules = mergeRules(policyRules, policy.Spec.Rules)
-		}
-
-		nodeCostMap, _, err := s.getEndpointCost(&types.Reference{Name: pod.Name, Kind: kindPod},
-			policyRules, eligibleNodes, matchingOffer.peerNodeNames)
-		if err != nil {
-			s.log.Error(err, "error-getting-endpoint-cost", "offer", matchingOffer.offer.Name)
-
-			continue
-		}
-
-		if offerCostMap != nil {
-			offerCostMap = mergeOfferCost(offerCostMap, nodeCostMap)
-		} else {
-			offerCostMap = nodeCostMap
-		}
-	}
-
-	if offerCostMap == nil {
-		return nil, ErrNoCost
-	}
-
-	return offerCostMap, nil
-}
-
 // Start runs the constraint policy planner in go routines.
 func (s *ConstraintPolicySchedulerPlanner) Start() {
 	go s.listenForNodeEvents()
@@ -978,7 +927,7 @@ func (s *ConstraintPolicySchedulerPlanner) listenForNodeEvents() {
 
 // called with constraintpolicymutex held.
 func (s *ConstraintPolicySchedulerPlanner) getPodNode(pod *v1.Pod) (string, error) {
-	node, ok := s.podToNodeMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]
+	node, ok := s.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
 	if !ok {
 		return "", fmt.Errorf("cannot find pod %s node: %w", pod.Name,
 			ErrPodNotAssigned)
@@ -989,7 +938,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPodNode(pod *v1.Pod) (string, erro
 
 // called with constraintpolicymutex held.
 func (s *ConstraintPolicySchedulerPlanner) setPodNode(pod *v1.Pod, nodeName string) {
-	s.podToNodeMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
+	s.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
 }
 
 // FindFitRandom selects a randome node from the given or eligible nodes.

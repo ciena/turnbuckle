@@ -3,7 +3,6 @@ package scheduler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
@@ -25,24 +25,22 @@ type ConstraintPolicyScheduler struct {
 	defaultPlanner        *ConstraintPolicySchedulerPlanner
 	fh                    framework.Handle
 	quit                  chan struct{}
-	podQueue              chan *v1.Pod
 	podRequeueQueue       workqueue.RateLimitingInterface
-	podRequeueMap         map[ObjectMeta]struct{}
+	podRequeueMap         map[ktypes.NamespacedName]struct{}
 	constraintPolicyMutex sync.Mutex
 	podRequeueMutex       sync.Mutex
 }
 
 // ConstraintPolicySchedulerOptions defines the configuration options for the
-// constraint policy scheduler.
+// constraint policy scheduler
 type ConstraintPolicySchedulerOptions struct {
-	Planner              bool
+	Debug                bool
 	NumRetriesOnFailure  int
 	MinDelayOnFailure    time.Duration
 	MaxDelayOnFailure    time.Duration
 	FallbackOnNoOffers   bool
 	RetryOnNoOffers      bool
 	RequeuePeriod        time.Duration
-	PodQueueSize         uint
 	PlannerNodeQueueSize uint
 }
 
@@ -56,7 +54,6 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
 
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
-	podQueue := make(chan *v1.Pod, options.PodQueueSize)
 
 	deletePodCallback = func(pod *v1.Pod) {
 		constraintPolicyScheduler.handlePodDelete(pod)
@@ -74,13 +71,12 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	constraintPolicyScheduler.fh = fh
 	constraintPolicyScheduler.defaultPlanner = defaultPlanner
 	constraintPolicyScheduler.log = log
-	constraintPolicyScheduler.podQueue = podQueue
 	constraintPolicyScheduler.quit = make(chan struct{})
 	constraintPolicyScheduler.podRequeueQueue = workqueue.
 		NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(
 			options.MinDelayOnFailure,
 			options.MaxDelayOnFailure))
-	constraintPolicyScheduler.podRequeueMap = make(map[ObjectMeta]struct{})
+	constraintPolicyScheduler.podRequeueMap = make(map[ktypes.NamespacedName]struct{})
 
 	return constraintPolicyScheduler
 }
@@ -88,7 +84,7 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 func (s *ConstraintPolicyScheduler) handlePodDelete(pod *v1.Pod) {
 	s.podRequeueMutex.Lock()
 	defer s.podRequeueMutex.Unlock()
-	delete(s.podRequeueMap, ObjectMeta{Name: pod.Name, Namespace: pod.Namespace})
+	delete(s.podRequeueMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
 }
 
 // Stop halts the constraint policy scheduler.
@@ -133,7 +129,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 	defer func() {
 		if forgetItem {
 			s.podRequeueQueue.Forget(item)
-			delete(s.podRequeueMap, ObjectMeta{Name: data.Name, Namespace: data.Namespace})
+			delete(s.podRequeueMap, ktypes.NamespacedName{Name: data.Name, Namespace: data.Namespace})
 		}
 	}()
 
@@ -164,7 +160,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(item interface{}) bool {
 		return false
 	}
 
-	if _, ok := s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
+	if _, ok := s.podRequeueMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
 		s.log.V(1).Info("pod-requeue-delete", "pod-probably-deleted", pod.Name)
 
 		return false
@@ -201,8 +197,8 @@ func (s *ConstraintPolicyScheduler) requeueWorker() {
 func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 	s.podRequeueMutex.Lock()
 
-	if _, ok := s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
-		s.podRequeueMap[ObjectMeta{Name: pod.Name, Namespace: pod.Namespace}] = struct{}{}
+	if _, ok := s.podRequeueMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
+		s.podRequeueMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}] = struct{}{}
 	}
 
 	s.log.V(1).Info("pod-requeue", "pod", pod.Name, "namespace", pod.Namespace)
@@ -224,7 +220,7 @@ func (s *ConstraintPolicyScheduler) requeue(pod *v1.Pod) bool {
 func (s *ConstraintPolicyScheduler) requeueFixup(pod *v1.Pod) {
 	s.podRequeueMutex.Lock()
 	defer s.podRequeueMutex.Unlock()
-	delete(s.podRequeueMap, ObjectMeta{Name: pod.Name, Namespace: pod.Namespace})
+	delete(s.podRequeueMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
 	s.podRequeueQueue.Forget(pod)
 }
 
@@ -274,6 +270,7 @@ func (s *ConstraintPolicyScheduler) findFit(pod *v1.Pod, eligibleNodes []*v1.Nod
 
 		break
 	}
+
 	// if the pod was requeued, then cleanup the entry from requeue map
 	s.requeueFixup(pod)
 	s.log.V(1).Info("found-matching", "node", nodeInstance.Name, "pod", pod.Name)
@@ -312,36 +309,4 @@ func (s *ConstraintPolicyScheduler) FindBestNode(pod *v1.Pod, feasibleNodes []*v
 	}
 
 	return node, nil
-}
-
-func (s *ConstraintPolicyScheduler) emitEvent(p *v1.Pod, message string) error {
-	timestamp := time.Now().UTC()
-
-	_, err := s.defaultPlanner.GetClientset().CoreV1().Events(p.Namespace).Create(context.Background(),
-		&v1.Event{
-			Count:          1,
-			Message:        message,
-			Reason:         "Scheduled",
-			LastTimestamp:  metav1.NewTime(timestamp),
-			FirstTimestamp: metav1.NewTime(timestamp),
-			Type:           "Normal",
-			Source: v1.EventSource{
-				Component: Name,
-			},
-			InvolvedObject: v1.ObjectReference{
-				Kind:      "Pod",
-				Name:      p.Name,
-				Namespace: p.Namespace,
-				UID:       p.UID,
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: p.Name + "-",
-			},
-		},
-		metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("error creating event: %w", err)
-	}
-
-	return nil
 }

@@ -19,7 +19,6 @@ package scheduler
 import (
 	"context"
 	"fmt"
-
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -54,9 +53,18 @@ var (
 )
 
 // New create a new framework plugin intance.
-func (config *ConstraintPolicySchedulerConfig) New(
+func New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
+	var defaultConfig = DefaultConstraintPolicySchedulerConfig()
+	var config *ConstraintPolicySchedulerOptions
+
+	if obj != nil {
+		pluginConfig := obj.(*ConstraintPolicySchedulingArgs)
+		config = parsePluginConfig(pluginConfig, defaultConfig)
+	} else {
+		config = defaultConfig
+	}
 
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
@@ -84,17 +92,7 @@ func (config *ConstraintPolicySchedulerConfig) New(
 		return nil, fmt.Errorf("about to initialize constraint policy interface: %w", err)
 	}
 
-	constraintPolicyScheduler := NewScheduler(ConstraintPolicySchedulerOptions{
-		NumRetriesOnFailure:  config.NumRetriesOnFailure,
-		MinDelayOnFailure:    config.MinDelayOnFailure,
-		MaxDelayOnFailure:    config.MaxDelayOnFailure,
-		FallbackOnNoOffers:   config.FallbackOnNoOffers,
-		RetryOnNoOffers:      config.RetryOnNoOffers,
-		RequeuePeriod:        config.RequeuePeriod,
-		PodQueueSize:         config.PodQueueSize,
-		PlannerNodeQueueSize: config.PlannerNodeQueueSize,
-	},
-		clientset, handle, constraintPolicyClient,
+	constraintPolicyScheduler := NewScheduler(*config, clientset, handle, constraintPolicyClient,
 		log.WithName("constraint-policy").WithName("scheduler"))
 
 	pluginLogger := log.WithName("scheduling-plugin")
