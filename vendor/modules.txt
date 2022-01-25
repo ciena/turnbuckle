@@ -64,7 +64,6 @@ github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
-github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/google/go-cmp v0.5.5
@@ -153,7 +152,8 @@ github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
-# github.com/opencontainers/runc v1.0.2
+# github.com/opencontainers/runc v1.0.3
+## explicit
 github.com/opencontainers/runc/libcontainer/apparmor
 github.com/opencontainers/runc/libcontainer/utils
 # github.com/pkg/errors v0.9.1
