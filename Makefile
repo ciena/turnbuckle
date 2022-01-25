@@ -30,7 +30,6 @@ SCHEDULER_IMG ?= $(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
 else
 SCHEDULER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
 endif
-SCHEDULER_DEBUG = true
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
@@ -228,7 +227,7 @@ deploy-manager:manifests kustomize ## Deploy controller to the K8s cluster speci
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 deploy-scheduler:
-	sed -e "s;IMAGE_SPEC;$(SCHEDULER_IMG);g" -e "s;DEBUG_SPEC;$(SCHEDULER_DEBUG);g" ./deploy/constraint-policy-scheduler.yaml | kubectl apply -f -
+	sed -e "s;IMAGE_SPEC;$(SCHEDULER_IMG);g" ./deploy/constraint-policy-scheduler.yaml | kubectl apply -f -
 
 .PHONY: undeploy undeploy-manager undeploy-scheduler
 undeploy: undeploy-scheduler undeploy-manager

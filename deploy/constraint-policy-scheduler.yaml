@@ -245,12 +245,6 @@ spec:
           image: IMAGE_SPEC
           imagePullPolicy: Always
           args:
-            - "--debug=DEBUG_SPEC"
-            - "--retry-on-no-offers=false"
-            - "--num-retries-on-failure=5"
-            - "--min-delay-on-failure=15s"
-            - "--max-delay-on-failure=45s"
-            - "--schedule-on-no-offers=false"
             - "--config=/etc/kubernetes/scheduler-config.yaml"
             - "--leader-elect=false"
           volumeMounts:
