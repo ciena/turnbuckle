@@ -33,6 +33,8 @@ type ConstraintPolicySchedulingArgs struct {
 	RetryOnNoOffers      bool   `json:"retryOnNoOffers,omitEmpty"`
 	RequeuePeriod        string `json:"requeuePeriod,omitEmpty"`
 	PlannerNodeQueueSize uint   `json:"plannerNodeQueueSize,omitEmpty"`
+	CallTimeout          string `json:"callTimeout,omitEmpty"`
+	UpdateWorkerPeriod   string `json:"updateWorkerPeriod,omitEmpty"`
 }
 
 func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
@@ -46,6 +48,8 @@ func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions 
 		RetryOnNoOffers:      false,
 		RequeuePeriod:        5 * time.Second,
 		PlannerNodeQueueSize: 300,
+		CallTimeout:          15 * time.Second,
+		UpdateWorkerPeriod:   5 * time.Second,
 	}
 }
 
@@ -60,23 +64,32 @@ func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConf
 		config.NumRetriesOnFailure = pluginConfig.NumRetriesOnFailure
 	}
 
-	minDelay, err := time.ParseDuration(pluginConfig.MinDelayOnFailure)
-	if err == nil && minDelay > time.Duration(0) {
-		config.MinDelayOnFailure = minDelay
+	var durationRefs = []*time.Duration{&config.MinDelayOnFailure,
+		&config.MaxDelayOnFailure,
+		&config.RequeuePeriod,
+		&config.CallTimeout,
+		&config.UpdateWorkerPeriod,
 	}
 
-	maxDelay, err := time.ParseDuration(pluginConfig.MaxDelayOnFailure)
-	if err == nil && maxDelay > time.Duration(0) {
-		config.MaxDelayOnFailure = maxDelay
+	var durations = []string{pluginConfig.MinDelayOnFailure,
+		pluginConfig.MaxDelayOnFailure,
+		pluginConfig.RequeuePeriod,
+		pluginConfig.CallTimeout,
+		pluginConfig.UpdateWorkerPeriod,
 	}
 
-	if config.MinDelayOnFailure > config.MaxDelayOnFailure {
+	for i, duration := range durations {
+		if duration == "" {
+			continue
+		}
+
+		if d, err := time.ParseDuration(duration); err == nil && d > time.Duration(0) {
+			*durationRefs[i] = d
+		}
+	}
+
+	if config.MinDelayOnFailure >= config.MaxDelayOnFailure {
 		config.MinDelayOnFailure = config.MaxDelayOnFailure / 2
-	}
-
-	requeuePeriod, err := time.ParseDuration(pluginConfig.RequeuePeriod)
-	if err == nil && requeuePeriod > time.Duration(0) {
-		config.RequeuePeriod = requeuePeriod
 	}
 
 	if pluginConfig.PlannerNodeQueueSize > 0 {

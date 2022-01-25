@@ -42,6 +42,8 @@ type ConstraintPolicySchedulerOptions struct {
 	RetryOnNoOffers      bool
 	RequeuePeriod        time.Duration
 	PlannerNodeQueueSize uint
+	CallTimeout          time.Duration
+	UpdateWorkerPeriod   time.Duration
 }
 
 // NewScheduler create a new instance of the schedule logic with the
@@ -61,9 +63,11 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 
 	defaultPlanner := NewPlanner(
 		ConstraintPolicySchedulerPlannerOptions{
-			NodeQueueSize:     options.PlannerNodeQueueSize,
-			AddPodCallback:    addPodCallback,
-			DeletePodCallback: deletePodCallback,
+			CallTimeout:        options.CallTimeout,
+			UpdateWorkerPeriod: options.UpdateWorkerPeriod,
+			NodeQueueSize:      options.PlannerNodeQueueSize,
+			AddPodCallback:     addPodCallback,
+			DeletePodCallback:  deletePodCallback,
 		},
 		clientset, constraintPolicyClient, log.WithName("default-planner"))
 
