@@ -25,16 +25,16 @@ import (
 // PluginArgs defines the parameters for ConstraintPolicyScheduling plugin
 type ConstraintPolicySchedulingArgs struct {
 	metav1.TypeMeta      `json:",inline"`
-	Debug                bool   `json:"debug,omitEmpty"`
-	MinDelayOnFailure    string `json:"minDelayOnFailure,omitEmpty"`
-	MaxDelayOnFailure    string `json:"maxDelayOnFailure,omitEmpty"`
-	NumRetriesOnFailure  int    `json:"numRetriesOnFailure,omitEmpty"`
-	FallbackOnNoOffers   bool   `json:"fallbackOnNoOffers,omitEmpty"`
-	RetryOnNoOffers      bool   `json:"retryOnNoOffers,omitEmpty"`
-	RequeuePeriod        string `json:"requeuePeriod,omitEmpty"`
-	PlannerNodeQueueSize uint   `json:"plannerNodeQueueSize,omitEmpty"`
-	CallTimeout          string `json:"callTimeout,omitEmpty"`
-	UpdateWorkerPeriod   string `json:"updateWorkerPeriod,omitEmpty"`
+	Debug                bool   `json:"debug,omitempty"`
+	MinDelayOnFailure    string `json:"minDelayOnFailure,omitempty"`
+	MaxDelayOnFailure    string `json:"maxDelayOnFailure,omitempty"`
+	NumRetriesOnFailure  int    `json:"numRetriesOnFailure,omitempty"`
+	FallbackOnNoOffers   bool   `json:"fallbackOnNoOffers,omitempty"`
+	RetryOnNoOffers      bool   `json:"retryOnNoOffers,omitempty"`
+	RequeuePeriod        string `json:"requeuePeriod,omitempty"`
+	PlannerNodeQueueSize uint   `json:"plannerNodeQueueSize,omitempty"`
+	CallTimeout          string `json:"callTimeout,omitempty"`
+	UpdateWorkerPeriod   string `json:"updateWorkerPeriod,omitempty"`
 }
 
 func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
