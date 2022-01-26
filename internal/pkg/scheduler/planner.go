@@ -895,8 +895,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
 		// if no nodes were found from ruleprovider, we go to the underlay
 		var err error
 
-		offerCostMap, nodeAllocationPathMap, err =
-			s.getUnderlayCostForOffers(offers, eligibleNodes, offerToRulesMap)
+		offerCostMap, nodeAllocationPathMap, err = s.getUnderlayCostForOffers(offers, eligibleNodes, offerToRulesMap)
 		if err != nil {
 			s.log.Error(err, "get-underlay-cost-for-offers-failed")
 

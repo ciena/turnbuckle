@@ -14,7 +14,6 @@ import (
 
 // RuleProvider declares the methods that can be called against a rule provider.
 type RuleProvider interface {
-
 	// EndpointCost calculates the cost of use each of the eligible nodes.
 	EndpointCost(src *types.Reference, eligibleNodes []string,
 		peerNodes []string, request, limit string) ([]NodeAndCost, error)

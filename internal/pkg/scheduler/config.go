@@ -17,13 +17,15 @@ limitations under the License.
 package scheduler
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// PluginArgs defines the parameters for ConstraintPolicyScheduling plugin.
+// ConstraintPolicySchedulingArgs defines the parameters for ConstraintPolicyScheduling plugin.
 type ConstraintPolicySchedulingArgs struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta      `json:",inline"`
 	Debug                bool   `json:"debug,omitempty"`
 	MinDelayOnFailure    string `json:"minDelayOnFailure,omitempty"`
@@ -88,6 +90,7 @@ func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConf
 	}
 
 	if config.MinDelayOnFailure >= config.MaxDelayOnFailure {
+		//nolint:gomnd
 		config.MinDelayOnFailure = config.MaxDelayOnFailure / 2
 	}
 

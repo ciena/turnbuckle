@@ -18,6 +18,7 @@ package scheduler
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	schedschemebuilder "k8s.io/kube-scheduler/config/v1beta2"
 	schedschemeinternalbuilder "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	schedscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/v1beta2"
@@ -32,8 +33,11 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
+// nolint:gochecknoinits
 func init() {
 	localSchemeBuilder := &schedschemebuilder.SchemeBuilder
 	localSchemeBuilder.Register(addKnownTypes)
-	localSchemeBuilder.AddToScheme(schedscheme.GetPluginArgConversionScheme())
+
+	scheme := schedscheme.GetPluginArgConversionScheme()
+	utilruntime.Must(localSchemeBuilder.AddToScheme(scheme))
 }
