@@ -53,14 +53,17 @@ var (
 	_ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 )
 
+// nolint:ireturn
 // New create a new framework plugin intance.
 func New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
-	defaultConfig := DefaultConstraintPolicySchedulerConfig()
 	var config *ConstraintPolicySchedulerOptions
 
+	defaultConfig := DefaultConstraintPolicySchedulerConfig()
+
 	if obj != nil {
+		//nolint: forcetypeassert
 		pluginConfig := obj.(*ConstraintPolicySchedulingArgs)
 		config = parsePluginConfig(pluginConfig, defaultConfig)
 	} else {
@@ -128,6 +131,7 @@ func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error
 	return assignmentState, nil
 }
 
+// nolint:ireturn
 func (s *preFilterState) Clone() framework.StateData {
 	return s
 }
@@ -185,6 +189,7 @@ func (c *ConstraintPolicyScheduling) PreFilter(
 	return status
 }
 
+// nolint:ireturn
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
 func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil

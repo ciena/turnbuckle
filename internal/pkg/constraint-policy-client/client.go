@@ -61,7 +61,7 @@ func init() {
 }
 
 // New creates and returns a new constraint policy client instance.
-func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
+func New(config *rest.Config, log logr.Logger) (*constraintPolicyClient, error) {
 	client, err := newConstraintClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
 	return &constraintPolicyClient{client: client, log: log}, nil
 }
 
-func newConstraintClientForConfig(c *rest.Config) (rest.Interface, error) {
+func newConstraintClientForConfig(c *rest.Config) (*rest.RESTClient, error) {
 	config := *c
 	setConfigDefaults(&config)
 

@@ -39,6 +39,7 @@ type ConstraintPolicySchedulingArgs struct {
 	UpdateWorkerPeriod   string `json:"updateWorkerPeriod,omitempty"`
 }
 
+// DefaultConstraintPolicySchedulerConfig returns the default options for scheduler.
 func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
 	// nolint:gomnd
 	return &ConstraintPolicySchedulerOptions{
@@ -60,8 +61,9 @@ type durationAndRef struct {
 	ref      *time.Duration
 }
 
-func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
-	var config ConstraintPolicySchedulerOptions = *defaultConfig
+func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs,
+	defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
+	config := *defaultConfig
 
 	config.Debug = pluginConfig.Debug
 	config.FallbackOnNoOffers = pluginConfig.FallbackOnNoOffers

@@ -101,13 +101,13 @@ func NewPlanner(
 	}
 
 	updateFunc := func(oldObj interface{}, newObj interface{}) {
-		oldPod, ok := oldObj.(*v1.Pod)
-		if !ok {
+		oldPod, status := oldObj.(*v1.Pod)
+		if !status {
 			return
 		}
 
-		newPod, ok := newObj.(*v1.Pod)
-		if !ok {
+		newPod, status := newObj.(*v1.Pod)
+		if !status {
 			return
 		}
 
@@ -216,6 +216,7 @@ func initInformers(clientset kubernetes.Interface,
 	return nodeInformer.Lister()
 }
 
+// nolint:ireturn
 // GetClientset returns the client set for the planner.
 func (s *ConstraintPolicySchedulerPlanner) GetClientset() kubernetes.Interface {
 	return s.clientset
@@ -317,13 +318,13 @@ func (s *ConstraintPolicySchedulerPlanner) handlePodDelete(pod *v1.Pod) {
 func ParseDuration(durationStrings ...string) ([]time.Duration, error) {
 	durations := make([]time.Duration, len(durationStrings))
 
-	for i, ds := range durationStrings {
+	for index, ds := range durationStrings {
 		duration, err := time.ParseDuration(ds)
 		if err != nil {
 			return nil, fmt.Errorf("unble to parse '%s': %w", ds, err)
 		}
 
-		durations[i] = duration
+		durations[index] = duration
 	}
 
 	return durations, nil
@@ -360,7 +361,9 @@ func matchesLabelSelector(labelSelector *metav1.LabelSelector, pod *v1.Pod) (boo
 	return labels.Set(set).AsSelector().Matches(labels.Set(pod.Labels)), nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(endpointLabels labels.Set) (map[ktypes.NamespacedName]string, error) {
+func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(
+	endpointLabels labels.Set) (map[ktypes.NamespacedName]string, error,
+) {
 	endpoints, err := s.clientset.CoreV1().Endpoints("").List(context.Background(),
 		metav1.ListOptions{LabelSelector: endpointLabels.String()})
 	if err != nil {
@@ -389,20 +392,20 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (ma
 
 	podNodeMap := make(map[ktypes.NamespacedName]string)
 
-	for i := range pods.Items {
-		if pods.Items[i].Status.Phase == v1.PodFailed || pods.Items[i].DeletionTimestamp != nil {
+	for index := range pods.Items {
+		if pods.Items[index].Status.Phase == v1.PodFailed || pods.Items[index].DeletionTimestamp != nil {
 			continue
 		}
 
 		var podNodeName string
 
-		if nodeName, err := s.GetNodeName(&pods.Items[i]); err == nil {
+		if nodeName, err := s.GetNodeName(&pods.Items[index]); err == nil {
 			podNodeName = nodeName
 		} else {
 			podNodeName = ""
 		}
 
-		podNodeMap[ktypes.NamespacedName{Name: pods.Items[i].Name, Namespace: pods.Items[i].Namespace}] = podNodeName
+		podNodeMap[ktypes.NamespacedName{Name: pods.Items[index].Name, Namespace: pods.Items[index].Namespace}] = podNodeName
 	}
 
 	return podNodeMap, nil
@@ -455,18 +458,47 @@ func getPeerNodeNames(peerToNodeMap map[ktypes.NamespacedName]string) []string {
 	return nodeNames
 }
 
-func mergePeers(p1, p2 map[ktypes.NamespacedName]string) map[ktypes.NamespacedName]string {
-	p3 := make(map[ktypes.NamespacedName]string)
+func mergePeers(peer1, peer2 map[ktypes.NamespacedName]string) map[ktypes.NamespacedName]string {
+	result := make(map[ktypes.NamespacedName]string)
 
-	for k, v := range p1 {
-		p3[k] = v
+	for k, v := range peer1 {
+		result[k] = v
 	}
 
-	for k, v := range p2 {
-		p3[k] = v
+	for k, v := range peer2 {
+		result[k] = v
 	}
 
-	return p3
+	return result
+}
+
+func (s *ConstraintPolicySchedulerPlanner) processPolicyOfferTargets(pod *v1.Pod,
+	offer *constraintv1alpha1.ConstraintPolicyOffer) ([]*constraintv1alpha1.ConstraintPolicyOfferTarget, bool) {
+	var matched bool
+	peers := []*constraintv1alpha1.ConstraintPolicyOfferTarget{}
+
+	for _, target := range offer.Spec.Targets {
+		var targetMatch bool
+
+		if target.Kind == kindPod && target.LabelSelector != nil {
+			match, err := matchesLabelSelector(target.LabelSelector, pod)
+			if err != nil {
+				s.log.Error(err, "error-matching-source-label-selector", "offer", offer.Name)
+
+				continue
+			}
+
+			targetMatch = match
+		}
+
+		if !targetMatch {
+			peers = append(peers, target)
+		} else {
+			matched = targetMatch
+		}
+	}
+
+	return peers, matched
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*constraintPolicyOffer, error) {
@@ -487,28 +519,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*cons
 
 		var matched bool
 
-		peers := []*constraintv1alpha1.ConstraintPolicyOfferTarget{}
-
-		for _, target := range offer.Spec.Targets {
-			var targetMatch bool
-
-			if target.Kind == kindPod && target.LabelSelector != nil {
-				match, err := matchesLabelSelector(target.LabelSelector, pod)
-				if err != nil {
-					s.log.Error(err, "error-matching-source-label-selector", "offer", offer.Name)
-
-					continue
-				}
-
-				targetMatch = match
-			}
-
-			if !targetMatch {
-				peers = append(peers, target)
-			} else {
-				matched = targetMatch
-			}
-		}
+		peers, matched := s.processPolicyOfferTargets(pod, offer)
 
 		if matched {
 			for _, peer := range peers {
@@ -583,43 +594,43 @@ func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(name, namespace st
 }
 
 func mergeOfferCost(m1 map[string]int64, m2 map[string]int64) map[string]int64 {
-	m3 := make(map[string]int64)
+	result := make(map[string]int64)
 
 	for k, v := range m1 {
 		if v2, ok := m2[k]; ok {
 			// nolint:gomnd
-			m3[k] = (v + v2) / 2
+			result[k] = (v + v2) / 2
 		}
 	}
 
-	return m3
+	return result
 }
 
 func mergeNodeCost(m1 map[string][]int64, m2 map[string][]int64) map[string][]int64 {
-	m3 := make(map[string][]int64)
+	result := make(map[string][]int64)
 
 	for k, v1 := range m1 {
 		if v2, ok := m2[k]; ok {
 			// concat m1[k] and m2[k] values on intersect
-			m3[k] = append(m3[k], v1...)
-			m3[k] = append(m3[k], v2...)
+			result[k] = append(result[k], v1...)
+			result[k] = append(result[k], v2...)
 		}
 	}
 
-	return m3
+	return result
 }
 
 func mergeNodeAllocationCost(m1 map[NodeAndCost]string, m2 map[NodeAndCost]string) map[NodeAndCost]string {
-	m3 := make(map[NodeAndCost]string)
+	result := make(map[NodeAndCost]string)
 
 	for nc := range m1 {
 		if m2Id, ok := m2[nc]; ok {
 			// we can use both as id is in both the lists
-			m3[nc] = m2Id
+			result[nc] = m2Id
 		}
 	}
 
-	return m3
+	return result
 }
 
 func mergeRules(
@@ -680,16 +691,18 @@ func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(
 		provider, err := s.lookupRuleProvider(rule.Name, "")
 		if err != nil {
 			s.log.Error(err, "error-looking-up-rule-provider", "rule", rule.Name)
+			continue
+		}
+
+		if nodeAndCost, err := provider.EndpointCost(src, eligibleNodes, peerNodeNames,
+			rule.Request, rule.Limit); err != nil {
+			s.log.Error(err, "error-getting-endpoint-cost", "rule", rule.Name)
 		} else {
-			nodeAndCost, err := provider.EndpointCost(src, eligibleNodes, peerNodeNames,
-				rule.Request, rule.Limit)
-			if err != nil {
-				s.log.Error(err, "error-getting-endpoint-cost", "rule", rule.Name)
-			} else {
-				ruleToCostMap[rule.Name] = filterOutInfiniteCost(nodeAndCost)
-				if len(nodeAndCost) > 0 {
-					matchedRules = append(matchedRules, rule)
-				}
+			nodeAndCost = filterOutInfiniteCost(nodeAndCost)
+			ruleToCostMap[rule.Name] = nodeAndCost
+
+			if len(nodeAndCost) > 0 {
+				matchedRules = append(matchedRules, rule)
 			}
 		}
 	}
@@ -1046,7 +1059,7 @@ func (s *ConstraintPolicySchedulerPlanner) processUpdate(item interface{}) {
 	var data *v1.Pod
 
 	// nolint:forcetypeassert
-	switch t := item.(type) {
+	switch itemType := item.(type) {
 	case *v1.Pod:
 		data = item.(*v1.Pod)
 	case *workWrapper:
@@ -1063,7 +1076,7 @@ func (s *ConstraintPolicySchedulerPlanner) processUpdate(item interface{}) {
 
 		return
 	default:
-		s.log.V(1).Info("pod-update-item-not-a-pod-or-a-function", "type", t)
+		s.log.V(1).Info("pod-update-item-not-a-pod-or-a-function", "type", itemType)
 
 		return
 	}
@@ -1184,25 +1197,28 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(
 
 	// we check if we have to allocate a path to the underlay for this node
 	underlayPathID, ok := nodeAllocationPathMap[matchedNode]
-	if ok {
-		underlayController, err := s.lookupUnderlayController()
-		if err != nil {
-			s.log.Error(err, "underlay-controller-lookup-failed", "for-node-and-costr", matchedNode)
-		} else {
-			err = underlayController.Allocate(underlayPathID)
-			if err != nil {
-				s.log.V(1).Info("underlay-controller-allocate-failed", "path-id", underlayPathID)
-			} else {
-				s.log.V(1).Info("underlay-controller-allocate-success", "path-id", underlayPathID)
-			}
+	if !ok {
+		return nodeInstance, nil
+	}
 
-			err = s.setPodFinalizer(pod, underlayPathID)
-			if err != nil {
-				s.log.Error(err, "set-pod-finalizer-failed", "pod", pod.Name, "path", underlayPathID)
-			} else {
-				s.log.V(1).Info("set-pod-finalizer-success", "pod", pod.Name, "path", underlayPathID)
-			}
-		}
+	underlayController, err := s.lookupUnderlayController()
+	if err != nil {
+		s.log.Error(err, "underlay-controller-lookup-failed", "for-node-and-costr", matchedNode)
+		return nodeInstance, nil
+	}
+
+	err = underlayController.Allocate(underlayPathID)
+	if err != nil {
+		s.log.V(1).Info("underlay-controller-allocate-failed", "path-id", underlayPathID)
+	} else {
+		s.log.V(1).Info("underlay-controller-allocate-success", "path-id", underlayPathID)
+	}
+
+	err = s.setPodFinalizer(pod, underlayPathID)
+	if err != nil {
+		s.log.Error(err, "set-pod-finalizer-failed", "pod", pod.Name, "path", underlayPathID)
+	} else {
+		s.log.V(1).Info("set-pod-finalizer-success", "pod", pod.Name, "path", underlayPathID)
 	}
 
 	return nodeInstance, nil

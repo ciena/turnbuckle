@@ -23,7 +23,7 @@ type ConstraintPolicyScheduler struct {
 	options               ConstraintPolicySchedulerOptions
 	log                   logr.Logger
 	defaultPlanner        *ConstraintPolicySchedulerPlanner
-	fh                    framework.Handle
+	pluginFrameworkHandle framework.Handle
 	quit                  chan struct{}
 	podRequeueQueue       workqueue.RateLimitingInterface
 	podRequeueMap         map[ktypes.NamespacedName]struct{}
@@ -72,7 +72,7 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 		clientset, constraintPolicyClient, log.WithName("default-planner"))
 
 	constraintPolicyScheduler.options = options
-	constraintPolicyScheduler.fh = fh
+	constraintPolicyScheduler.pluginFrameworkHandle = fh
 	constraintPolicyScheduler.defaultPlanner = defaultPlanner
 	constraintPolicyScheduler.log = log
 	constraintPolicyScheduler.quit = make(chan struct{})
