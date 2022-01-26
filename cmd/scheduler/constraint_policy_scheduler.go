@@ -24,7 +24,6 @@ import (
 )
 
 func main() {
-
 	// Register custom plugins to the scheduler framework.
 	command := app.NewSchedulerCommand(
 		app.WithPlugin(cps.Name, cps.New),

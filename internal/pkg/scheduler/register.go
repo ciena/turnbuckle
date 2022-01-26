@@ -20,12 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	schedschemebuilder "k8s.io/kube-scheduler/config/v1beta2"
 	schedschemeinternalbuilder "k8s.io/kubernetes/pkg/scheduler/apis/config"
-
 	schedscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/v1beta2"
-)
-
-var (
-	localSchemeBuilder = &schedschemebuilder.SchemeBuilder
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -38,6 +33,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 }
 
 func init() {
+	localSchemeBuilder := &schedschemebuilder.SchemeBuilder
 	localSchemeBuilder.Register(addKnownTypes)
 	localSchemeBuilder.AddToScheme(schedscheme.GetPluginArgConversionScheme())
 }

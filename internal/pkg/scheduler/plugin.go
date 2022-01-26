@@ -19,6 +19,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -56,7 +57,7 @@ var (
 func New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
 	var log logr.Logger
-	var defaultConfig = DefaultConstraintPolicySchedulerConfig()
+	defaultConfig := DefaultConstraintPolicySchedulerConfig()
 	var config *ConstraintPolicySchedulerOptions
 
 	if obj != nil {

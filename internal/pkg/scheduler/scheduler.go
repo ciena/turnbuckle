@@ -32,7 +32,7 @@ type ConstraintPolicyScheduler struct {
 }
 
 // ConstraintPolicySchedulerOptions defines the configuration options for the
-// constraint policy scheduler
+// constraint policy scheduler.
 type ConstraintPolicySchedulerOptions struct {
 	Debug                bool
 	NumRetriesOnFailure  int

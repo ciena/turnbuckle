@@ -22,7 +22,7 @@ import (
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// PluginArgs defines the parameters for ConstraintPolicyScheduling plugin
+// PluginArgs defines the parameters for ConstraintPolicyScheduling plugin.
 type ConstraintPolicySchedulingArgs struct {
 	metav1.TypeMeta      `json:",inline"`
 	Debug                bool   `json:"debug,omitempty"`
@@ -69,12 +69,12 @@ func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConf
 		config.NumRetriesOnFailure = pluginConfig.NumRetriesOnFailure
 	}
 
-	var durationRefs = []*durationAndRef{
-		&durationAndRef{duration: pluginConfig.MinDelayOnFailure, ref: &config.MinDelayOnFailure},
-		&durationAndRef{duration: pluginConfig.MaxDelayOnFailure, ref: &config.MaxDelayOnFailure},
-		&durationAndRef{duration: pluginConfig.RequeuePeriod, ref: &config.RequeuePeriod},
-		&durationAndRef{duration: pluginConfig.CallTimeout, ref: &config.CallTimeout},
-		&durationAndRef{duration: pluginConfig.UpdateWorkerPeriod, ref: &config.UpdateWorkerPeriod},
+	durationRefs := []*durationAndRef{
+		{duration: pluginConfig.MinDelayOnFailure, ref: &config.MinDelayOnFailure},
+		{duration: pluginConfig.MaxDelayOnFailure, ref: &config.MaxDelayOnFailure},
+		{duration: pluginConfig.RequeuePeriod, ref: &config.RequeuePeriod},
+		{duration: pluginConfig.CallTimeout, ref: &config.CallTimeout},
+		{duration: pluginConfig.UpdateWorkerPeriod, ref: &config.UpdateWorkerPeriod},
 	}
 
 	for _, durationRef := range durationRefs {
