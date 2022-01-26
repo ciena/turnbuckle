@@ -517,8 +517,6 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*cons
 
 		var peerNodeNames []string
 
-		var matched bool
-
 		peers, matched := s.processPolicyOfferTargets(pod, offer)
 
 		if matched {
