@@ -53,6 +53,11 @@ func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions 
 	}
 }
 
+type durationAndRef struct {
+	duration string
+	ref      *time.Duration
+}
+
 func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
 	var config ConstraintPolicySchedulerOptions = *defaultConfig
 
@@ -64,27 +69,21 @@ func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs, defaultConf
 		config.NumRetriesOnFailure = pluginConfig.NumRetriesOnFailure
 	}
 
-	var durationRefs = []*time.Duration{&config.MinDelayOnFailure,
-		&config.MaxDelayOnFailure,
-		&config.RequeuePeriod,
-		&config.CallTimeout,
-		&config.UpdateWorkerPeriod,
+	var durationRefs = []*durationAndRef{
+		&durationAndRef{duration: pluginConfig.MinDelayOnFailure, ref: &config.MinDelayOnFailure},
+		&durationAndRef{duration: pluginConfig.MaxDelayOnFailure, ref: &config.MaxDelayOnFailure},
+		&durationAndRef{duration: pluginConfig.RequeuePeriod, ref: &config.RequeuePeriod},
+		&durationAndRef{duration: pluginConfig.CallTimeout, ref: &config.CallTimeout},
+		&durationAndRef{duration: pluginConfig.UpdateWorkerPeriod, ref: &config.UpdateWorkerPeriod},
 	}
 
-	var durations = []string{pluginConfig.MinDelayOnFailure,
-		pluginConfig.MaxDelayOnFailure,
-		pluginConfig.RequeuePeriod,
-		pluginConfig.CallTimeout,
-		pluginConfig.UpdateWorkerPeriod,
-	}
-
-	for i, duration := range durations {
-		if duration == "" {
+	for _, durationRef := range durationRefs {
+		if durationRef.duration == "" {
 			continue
 		}
 
-		if d, err := time.ParseDuration(duration); err == nil && d > time.Duration(0) {
-			*durationRefs[i] = d
+		if d, err := time.ParseDuration(durationRef.duration); err == nil && d > time.Duration(0) {
+			*durationRef.ref = d
 		}
 	}
 
