@@ -296,19 +296,7 @@ func (s *ConstraintPolicyScheduler) FindBestNode(ctx context.Context,
 	defer s.constraintPolicyMutex.Unlock()
 
 	node, err := s.findFit(ctx, pod, feasibleNodes)
-
-	if errors.Is(err, ErrNoOffers) {
-		// if no offers are matched for the pod, return the existing feasible nodes
-		if len(feasibleNodes) > 0 {
-			return feasibleNodes[0], nil
-		}
-
-		return nil, err
-	}
-
 	if err != nil {
-		s.log.V(1).Info("scheduler-plugin", "no-nodes-available-to-schedule-pod", pod.Name)
-
 		return nil, err
 	}
 

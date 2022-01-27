@@ -191,9 +191,16 @@ func (c *ConstraintPolicyScheduling) PreFilter(
 	cancel()
 
 	if !status.IsSuccess() {
+		// check if we have a NoOffers match.
+		// In this case, we let the scheduler pick the node
+		if status.Equal(framework.AsStatus(ErrNoOffers)) {
+			return framework.NewStatus(framework.Success)
+		}
+
 		return status
 	}
 
+	c.log.V(1).Info("prefilter-state-assignment", "pod", pod.Name, "node", assignmentState.node)
 	state.Write(preFilterStateKey, assignmentState)
 
 	return status
