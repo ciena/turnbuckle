@@ -187,7 +187,7 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
                     logging.debug('costprovider match found for {}, rule {}'.format(ref, request.rule.name))
                     nc = []
                     compliance = self.getRuleCompliance(ruleproviders, request.rule, ref)
-                    logging.debug('ruleprovider compliance violation for rule {}'.format(request.rule.name))
+                    logging.debug('ruleprovider compliance at {} for rule {}'.format(compliance, request.rule.name))
 
                     for eligibleNode in request.eligibleNodes:
                         node = '{}:{}'.format(request.source.cluster, eligibleNode)
