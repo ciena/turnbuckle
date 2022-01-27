@@ -216,8 +216,8 @@ func initInformers(clientset kubernetes.Interface,
 	return nodeInformer.Lister()
 }
 
-// nolint:ireturn
 // GetClientset returns the client set for the planner.
+// nolint:ireturn
 func (s *ConstraintPolicySchedulerPlanner) GetClientset() kubernetes.Interface {
 	return s.clientset
 }
@@ -287,7 +287,7 @@ func (s *ConstraintPolicySchedulerPlanner) releaseUnderlayPath(pod *v1.Pod) erro
 
 	s.log.V(1).Info("underlay-path-release-pod-update-success", "pod", pod.Name)
 
-	underlayController, err := s.lookupUnderlayController()
+	underlayController, err := s.lookupUnderlayController(context.Background())
 	if err != nil {
 		s.log.Error(err, "underlay-lookup-failed")
 
@@ -362,9 +362,10 @@ func matchesLabelSelector(labelSelector *metav1.LabelSelector, pod *v1.Pod) (boo
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(
+	ctx context.Context,
 	endpointLabels labels.Set) (map[ktypes.NamespacedName]string, error,
 ) {
-	endpoints, err := s.clientset.CoreV1().Endpoints("").List(context.Background(),
+	endpoints, err := s.clientset.CoreV1().Endpoints("").List(ctx,
 		metav1.ListOptions{LabelSelector: endpointLabels.String()})
 	if err != nil {
 		return nil, fmt.Errorf("error listing endpoints: %w", err)
@@ -383,8 +384,11 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerEndpoints(
 	return endpointNodeMap, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (map[ktypes.NamespacedName]string, error) {
-	pods, err := s.clientset.CoreV1().Pods("").List(context.Background(),
+func (s *ConstraintPolicySchedulerPlanner) getPeerPods(
+	ctx context.Context,
+	podLabels labels.Set,
+) (map[ktypes.NamespacedName]string, error) {
+	pods, err := s.clientset.CoreV1().Pods("").List(ctx,
 		metav1.ListOptions{LabelSelector: podLabels.String()})
 	if err != nil {
 		return nil, fmt.Errorf("error listing pods: %w", err)
@@ -412,6 +416,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeerPods(podLabels labels.Set) (ma
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getPeers(
+	ctx context.Context,
 	selector *constraintv1alpha1.ConstraintPolicyOfferTarget,
 ) (map[ktypes.NamespacedName]string, error) {
 	if selector.Kind == kindPod && selector.LabelSelector != nil {
@@ -422,7 +427,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPeers(
 			return nil, fmt.Errorf("error creating label selector: %w", err)
 		}
 
-		return s.getPeerPods(labels.Set(set))
+		return s.getPeerPods(ctx, labels.Set(set))
 	}
 
 	if selector.Kind == "Endpoint" && selector.LabelSelector != nil {
@@ -434,10 +439,10 @@ func (s *ConstraintPolicySchedulerPlanner) getPeers(
 				err)
 		}
 
-		return s.getPeerEndpoints(labels.Set(set))
+		return s.getPeerEndpoints(ctx, labels.Set(set))
 	}
 
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 func getPeerNodeNames(peerToNodeMap map[ktypes.NamespacedName]string) []string {
@@ -473,8 +478,10 @@ func mergePeers(peer1, peer2 map[ktypes.NamespacedName]string) map[ktypes.Namesp
 }
 
 func (s *ConstraintPolicySchedulerPlanner) processPolicyOfferTargets(pod *v1.Pod,
-	offer *constraintv1alpha1.ConstraintPolicyOffer) ([]*constraintv1alpha1.ConstraintPolicyOfferTarget, bool) {
+	offer *constraintv1alpha1.ConstraintPolicyOffer) ([]*constraintv1alpha1.ConstraintPolicyOfferTarget, bool,
+) {
 	var matched bool
+
 	peers := []*constraintv1alpha1.ConstraintPolicyOfferTarget{}
 
 	for _, target := range offer.Spec.Targets {
@@ -501,11 +508,11 @@ func (s *ConstraintPolicySchedulerPlanner) processPolicyOfferTargets(pod *v1.Pod
 	return peers, matched
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*constraintPolicyOffer, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.options.CallTimeout)
-	defer cancel()
-
-	offers, err := s.constraintPolicyClient.ListConstraintPolicyOffers(ctx, pod.Namespace, metav1.ListOptions{})
+func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(
+	parentCtx context.Context,
+	pod *v1.Pod) ([]*constraintPolicyOffer, error,
+) {
+	offers, err := s.constraintPolicyClient.ListConstraintPolicyOffers(parentCtx, pod.Namespace, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error listing policy offers: %w", err)
 	}
@@ -521,14 +528,17 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*cons
 
 		if matched {
 			for _, peer := range peers {
-				if peer.LabelSelector != nil {
-					peerMap, err := s.getPeers(peer)
-					if err != nil {
-						s.log.Error(err, "error-getting-peers", "offer", offer.Name)
-					} else {
-						peerToNodeMap = mergePeers(peerMap, peerToNodeMap)
-					}
+				if peer.LabelSelector == nil {
+					continue
 				}
+
+				ctx, cancel := context.WithTimeout(parentCtx, s.options.CallTimeout)
+
+				if peerMap, err := s.getPeers(ctx, peer); err == nil {
+					peerToNodeMap = mergePeers(peerMap, peerToNodeMap)
+				}
+
+				cancel()
 			}
 
 			peerNodeNames = getPeerNodeNames(peerToNodeMap)
@@ -548,8 +558,8 @@ func (s *ConstraintPolicySchedulerPlanner) getPolicyOffers(pod *v1.Pod) ([]*cons
 	return offerList, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayController, error) {
-	svcs, err := s.clientset.CoreV1().Services("").List(context.Background(),
+func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController(ctx context.Context) (UnderlayController, error) {
+	svcs, err := s.clientset.CoreV1().Services("").List(ctx,
 		metav1.ListOptions{LabelSelector: "constraint.ciena.com/underlay-controller"})
 	if err != nil {
 		return nil, fmt.Errorf("error listing underlay controller: %w", err)
@@ -569,8 +579,9 @@ func (s *ConstraintPolicySchedulerPlanner) lookupUnderlayController() (UnderlayC
 	}, nil
 }
 
-func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(name, namespace string) (RuleProvider, error) {
-	svcs, err := s.clientset.CoreV1().Services(namespace).List(context.Background(),
+func (s *ConstraintPolicySchedulerPlanner) lookupRuleProvider(ctx context.Context,
+	name, namespace string) (RuleProvider, error) {
+	svcs, err := s.clientset.CoreV1().Services(namespace).List(ctx,
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("constraint.ciena.com/provider-%s", name)})
 	if err != nil {
 		return nil, fmt.Errorf("error listing rule provider: %w", err)
@@ -677,6 +688,7 @@ func filterOutInfiniteCost(nodeAndCost []NodeAndCost) []NodeAndCost {
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(
+	ctx context.Context,
 	src *types.Reference,
 	policyRules []*constraintv1alpha1.ConstraintPolicyRule,
 	eligibleNodes []string,
@@ -686,9 +698,10 @@ func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(
 	matchedRules := []*constraintv1alpha1.ConstraintPolicyRule{}
 
 	for _, rule := range policyRules {
-		provider, err := s.lookupRuleProvider(rule.Name, "")
+		provider, err := s.lookupRuleProvider(ctx, rule.Name, "")
 		if err != nil {
 			s.log.Error(err, "error-looking-up-rule-provider", "rule", rule.Name)
+
 			continue
 		}
 
@@ -736,12 +749,13 @@ func (s *ConstraintPolicySchedulerPlanner) getEndpointCost(
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getUnderlayCost(
+	ctx context.Context,
 	eligibleNodes []string,
 	peerNodeNames []string,
 	rules []*constraintv1alpha1.ConstraintPolicyRule,
 ) (map[string]int64, map[NodeAndCost]string, error) {
 	// this will make a grpc to underlay and get the cost
-	underlayController, err := s.lookupUnderlayController()
+	underlayController, err := s.lookupUnderlayController(ctx)
 	if err != nil {
 		s.log.Error(err, "underlay-controller-lookup-failed")
 
@@ -769,6 +783,7 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCost(
 }
 
 func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(
+	parentCtx context.Context,
 	matchingOffers []*constraintPolicyOffer,
 	eligibleNodes []string,
 	offerToRulesMap map[string][]*constraintv1alpha1.ConstraintPolicyRule,
@@ -797,8 +812,13 @@ func (s *ConstraintPolicySchedulerPlanner) getUnderlayCostForOffers(
 			peerNodeNames = matchingOffer.peerNodeNames
 		}
 
+		ctx, cancel := context.WithTimeout(parentCtx, s.options.CallTimeout)
+
 		nodeCostMap, allocationPathMap, err := s.getUnderlayCost(
-			eligibleNodes, peerNodeNames, rules)
+			ctx, eligibleNodes, peerNodeNames, rules)
+
+		cancel()
+
 		if err != nil {
 			s.log.Error(err, "error-getting-underlay-cost", "offer", matchingOffer.offer.Name)
 
@@ -853,7 +873,7 @@ func (s *ConstraintPolicySchedulerPlanner) getNodeWithBestCost(
 	return NodeAndCost{}, ErrNoNodesFound
 }
 
-func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
+func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(parentCtx context.Context, pod *v1.Pod,
 	eligibleNodes []string, offers []*constraintPolicyOffer) (map[string]int64, map[NodeAndCost]string, error) {
 	var offerCostMap map[string]int64
 
@@ -864,7 +884,7 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
 		var policyRules []*constraintv1alpha1.ConstraintPolicyRule
 
 		for _, policyName := range matchingOffer.offer.Spec.Policies {
-			ctx, cancel := context.WithTimeout(context.Background(), s.options.CallTimeout)
+			ctx, cancel := context.WithTimeout(parentCtx, s.options.CallTimeout)
 
 			policy, err := s.constraintPolicyClient.GetConstraintPolicy(ctx,
 				matchingOffer.offer.Namespace, string(policyName), metav1.GetOptions{})
@@ -880,8 +900,14 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
 			policyRules = mergeRules(policyRules, policy.Spec.Rules)
 		}
 
-		nodeCostMap, matchedRules, err := s.getEndpointCost(&types.Reference{Name: pod.Name, Kind: kindPod},
+		ctx, cancel := context.WithTimeout(parentCtx, s.options.CallTimeout)
+
+		nodeCostMap, matchedRules, err := s.getEndpointCost(ctx,
+			&types.Reference{Name: pod.Name, Kind: kindPod},
 			policyRules, eligibleNodes, matchingOffer.peerNodeNames)
+
+		cancel()
+
 		if err != nil {
 			s.log.Error(err, "error-getting-endpoint-cost", "offer", matchingOffer.offer.Name)
 
@@ -906,7 +932,8 @@ func (s *ConstraintPolicySchedulerPlanner) getPodCandidateNodes(pod *v1.Pod,
 		// if no nodes were found from ruleprovider, we go to the underlay
 		var err error
 
-		offerCostMap, nodeAllocationPathMap, err = s.getUnderlayCostForOffers(offers, eligibleNodes, offerToRulesMap)
+		offerCostMap, nodeAllocationPathMap, err = s.getUnderlayCostForOffers(
+			parentCtx, offers, eligibleNodes, offerToRulesMap)
 		if err != nil {
 			s.log.Error(err, "get-underlay-cost-for-offers-failed")
 
@@ -1124,7 +1151,7 @@ func (s *ConstraintPolicySchedulerPlanner) updateWorker() {
 	}
 }
 
-func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(pod *v1.Pod, pathID string) error {
+func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(ctx context.Context, pod *v1.Pod, pathID string) error {
 	podFinalizer := "constraint.ciena.com/remove-underlay_" + pathID
 
 	for _, finalizer := range pod.ObjectMeta.Finalizers {
@@ -1136,7 +1163,7 @@ func (s *ConstraintPolicySchedulerPlanner) setPodFinalizer(pod *v1.Pod, pathID s
 
 	pod.ObjectMeta.Finalizers = append(pod.ObjectMeta.Finalizers, podFinalizer)
 	if _, err := s.clientset.CoreV1().Pods(pod.Namespace).
-		Update(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
+		Update(ctx, pod, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("error updating pod: %w", err)
 	}
 
@@ -1148,6 +1175,7 @@ func (s *ConstraintPolicySchedulerPlanner) podFitsNode(pod *v1.Pod, nodename str
 }
 
 func (s *ConstraintPolicySchedulerPlanner) findFit(
+	parentCtx context.Context,
 	pod *v1.Pod,
 	eligibleNodes []*v1.Node,
 	eligibleNodeNames []string) (*v1.Node, error) {
@@ -1157,12 +1185,12 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(
 		return nil, ErrNoNodesFound
 	}
 
-	offers, err := s.getPolicyOffers(pod)
+	offers, err := s.getPolicyOffers(parentCtx, pod)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeCostMap, nodeAllocationPathMap, err := s.getPodCandidateNodes(pod, eligibleNodeNames, offers)
+	nodeCostMap, nodeAllocationPathMap, err := s.getPodCandidateNodes(parentCtx, pod, eligibleNodeNames, offers)
 	if err != nil {
 		s.log.Error(err, "nodes-not-found", "pod", pod.Name)
 
@@ -1199,9 +1227,15 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(
 		return nodeInstance, nil
 	}
 
-	underlayController, err := s.lookupUnderlayController()
+	ctx, cancel := context.WithTimeout(parentCtx, s.options.CallTimeout)
+
+	underlayController, err := s.lookupUnderlayController(ctx)
+
+	cancel()
+
 	if err != nil {
 		s.log.Error(err, "underlay-controller-lookup-failed", "for-node-and-costr", matchedNode)
+
 		return nodeInstance, nil
 	}
 
@@ -1212,7 +1246,12 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(
 		s.log.V(1).Info("underlay-controller-allocate-success", "path-id", underlayPathID)
 	}
 
-	err = s.setPodFinalizer(pod, underlayPathID)
+	ctx, cancel = context.WithTimeout(parentCtx, s.options.CallTimeout)
+
+	err = s.setPodFinalizer(ctx, pod, underlayPathID)
+
+	cancel()
+
 	if err != nil {
 		s.log.Error(err, "set-pod-finalizer-failed", "pod", pod.Name, "path", underlayPathID)
 	} else {
@@ -1223,7 +1262,11 @@ func (s *ConstraintPolicySchedulerPlanner) findFit(
 }
 
 // FindBestNode scheduler function to find the best node for the pod.
-func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNodes []*v1.Node) (*v1.Node, error) {
+func (s *ConstraintPolicySchedulerPlanner) FindBestNode(
+	ctx context.Context,
+	pod *v1.Pod,
+	feasibleNodes []*v1.Node) (*v1.Node, error,
+) {
 	var nodeNames []string
 
 	var err error
@@ -1244,5 +1287,5 @@ func (s *ConstraintPolicySchedulerPlanner) FindBestNode(pod *v1.Pod, feasibleNod
 	s.constraintPolicyMutex.Lock()
 	defer s.constraintPolicyMutex.Unlock()
 
-	return s.findFit(pod, feasibleNodes, nodeNames)
+	return s.findFit(ctx, pod, feasibleNodes, nodeNames)
 }

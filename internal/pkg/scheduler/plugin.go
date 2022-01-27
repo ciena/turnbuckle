@@ -18,6 +18,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	constraint_policy_client "github.com/ciena/turnbuckle/internal/pkg/constraint-policy-client"
@@ -53,11 +54,13 @@ var (
 	_ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 )
 
-// nolint:ireturn
 // New create a new framework plugin intance.
+// nolint:ireturn
 func New(
-	obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
+	obj runtime.Object, handle framework.Handle) (framework.Plugin, error,
+) {
 	var log logr.Logger
+
 	var config *ConstraintPolicySchedulerOptions
 
 	defaultConfig := DefaultConstraintPolicySchedulerConfig()
@@ -131,12 +134,14 @@ func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error
 	return assignmentState, nil
 }
 
+// Clone isn't needed for our state data.
 // nolint:ireturn
 func (s *preFilterState) Clone() framework.StateData {
 	return s
 }
 
 func (c *ConstraintPolicyScheduling) createPreFilterState(
+	ctx context.Context,
 	pod *v1.Pod) (*preFilterState, *framework.Status) {
 	allNodes, err := c.fh.SnapshotSharedLister().NodeInfos().List()
 	if err != nil {
@@ -155,13 +160,13 @@ func (c *ConstraintPolicyScheduling) createPreFilterState(
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
-	node, err := c.scheduler.FindBestNode(pod, eligibleNodes)
+	node, err := c.scheduler.FindBestNode(ctx, pod, eligibleNodes)
 	if err != nil {
-		return nil, framework.AsStatus(err)
-	}
+		if errors.Is(err, ErrNoNodesFound) {
+			return nil, framework.NewStatus(framework.Unschedulable)
+		}
 
-	if node == nil {
-		return nil, framework.NewStatus(framework.Unschedulable)
+		return nil, framework.AsStatus(err)
 	}
 
 	return &preFilterState{node: node.Name}, framework.NewStatus(framework.Success)
@@ -174,12 +179,17 @@ func (c *ConstraintPolicyScheduling) Name() string {
 
 // PreFilter pre-filters the pods to be placed.
 func (c *ConstraintPolicyScheduling) PreFilter(
-	ctx context.Context,
+	parentCtx context.Context,
 	state *framework.CycleState,
 	pod *v1.Pod) *framework.Status {
 	c.log.V(1).Info("prefilter", "pod", pod.Name)
 
-	assignmentState, status := c.createPreFilterState(pod)
+	//nolint: gomnd
+	ctx, cancel := context.WithTimeout(parentCtx, c.scheduler.options.CallTimeout*2)
+	assignmentState, status := c.createPreFilterState(ctx, pod)
+
+	cancel()
+
 	if !status.IsSuccess() {
 		return status
 	}
@@ -189,8 +199,8 @@ func (c *ConstraintPolicyScheduling) PreFilter(
 	return status
 }
 
-// nolint:ireturn
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
+// nolint:ireturn
 func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
 }
