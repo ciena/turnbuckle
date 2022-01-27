@@ -95,6 +95,7 @@ func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 	// Define a closer (nested function) that is used to increment
 	// the counters that represent the iterators through the permutations
 	inc := func(list []ReferenceList, refIdxs []int) {
+		// nolint:varnamelen
 		for i := len(refIdxs) - 1; i >= 0; i-- {
 			if i == 0 || refIdxs[i] < len(list[i])-1 {
 				refIdxs[i]++
@@ -196,20 +197,18 @@ var ErrConvertReference = errors.New("convert-unstructured-to-reference")
 // ParseReference attempts to parse the given string as a Reference and returns
 // the value or an error if it cannot be parsed as a Reference.
 func ParseReference(in string) (*Reference, error) {
-	var t Reference
-
 	parts := referenceRE.FindStringSubmatch(in)
 	if len(parts) == 0 {
 		return nil, ErrParseReference
 	}
 
-	t.Cluster = parts[IndexCluster]
-	t.Namespace = parts[IndexNamespace]
-	t.APIVersion = parts[IndexAPIVersion]
-	t.Kind = parts[IndexKind]
-	t.Name = parts[IndexName]
-
-	return &t, nil
+	return &Reference{
+		Cluster:    parts[IndexCluster],
+		Namespace:  parts[IndexNamespace],
+		APIVersion: parts[IndexAPIVersion],
+		Kind:       parts[IndexKind],
+		Name:       parts[IndexName],
+	}, nil
 }
 
 // NewReferenceFromUnstructured creates and returns a new Reference instance

@@ -13,57 +13,92 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package scheduler
 
 import (
 	"time"
 
-	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
-	cliflag "k8s.io/component-base/cli/flag"
-	"k8s.io/component-base/term"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type configSpec struct {
-	Debug               bool
-	MinDelayOnFailure   time.Duration
-	MaxDelayOnFailure   time.Duration
-	NumRetriesOnFailure int
-	FallbackOnNoOffers  bool
-	RetryOnNoOffers     bool
+// ConstraintPolicySchedulingArgs defines the parameters for ConstraintPolicyScheduling plugin.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ConstraintPolicySchedulingArgs struct {
+	// nolint:tagliatelle
+	metav1.TypeMeta      `json:",inline"`
+	Debug                bool   `json:"debug,omitempty"`
+	MinDelayOnFailure    string `json:"minDelayOnFailure,omitempty"`
+	MaxDelayOnFailure    string `json:"maxDelayOnFailure,omitempty"`
+	NumRetriesOnFailure  int    `json:"numRetriesOnFailure,omitempty"`
+	FallbackOnNoOffers   bool   `json:"fallbackOnNoOffers,omitempty"`
+	RetryOnNoOffers      bool   `json:"retryOnNoOffers,omitempty"`
+	RequeuePeriod        string `json:"requeuePeriod,omitempty"`
+	PlannerNodeQueueSize uint   `json:"plannerNodeQueueSize,omitempty"`
+	CallTimeout          string `json:"callTimeout,omitempty"`
+	UpdateWorkerPeriod   string `json:"updateWorkerPeriod,omitempty"`
 }
 
-var config configSpec = configSpec{
-	Debug:               true,
-	NumRetriesOnFailure: 3,
-	MinDelayOnFailure:   30 * time.Second,
-	MaxDelayOnFailure:   time.Minute,
-	FallbackOnNoOffers:  false,
-	RetryOnNoOffers:     false,
+// DefaultConstraintPolicySchedulerConfig returns the default options for scheduler.
+func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
+	// nolint:gomnd
+	return &ConstraintPolicySchedulerOptions{
+		Debug:                true,
+		NumRetriesOnFailure:  3,
+		MinDelayOnFailure:    30 * time.Second,
+		MaxDelayOnFailure:    time.Minute,
+		FallbackOnNoOffers:   false,
+		RetryOnNoOffers:      false,
+		RequeuePeriod:        5 * time.Second,
+		PlannerNodeQueueSize: 300,
+		CallTimeout:          15 * time.Second,
+		UpdateWorkerPeriod:   5 * time.Second,
+	}
 }
 
-func AddFlags(cmd *cobra.Command) *flag.FlagSet {
-	var nfs cliflag.NamedFlagSets
+type durationAndRef struct {
+	duration string
+	ref      *time.Duration
+}
 
-	fs := nfs.FlagSet("Constraint policy flags")
+func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs,
+	defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
+	config := *defaultConfig
 
-	fs.BoolVar(&config.Debug, "debug", config.Debug, "Enable debug logs")
-	fs.BoolVar(&config.FallbackOnNoOffers,
-		"schedule-on-no-offers", config.FallbackOnNoOffers,
-		"Schedule a pod if no offers are found")
-	fs.BoolVar(&config.RetryOnNoOffers,
-		"retry-on-no-offers", config.RetryOnNoOffers,
-		"Keep retrying to schedule a pod if no offers are found")
-	fs.DurationVar(&config.MinDelayOnFailure, "min-delay-on-failure",
-		config.MinDelayOnFailure, "The minimum delay interval for rescheduling pods on failures.")
-	fs.DurationVar(&config.MaxDelayOnFailure, "max-delay-on-failure",
-		config.MaxDelayOnFailure, "The maximum delay interval before rescheduling pods on failures.")
-	fs.IntVar(&config.NumRetriesOnFailure, "num-retries-on-failure", config.NumRetriesOnFailure,
-		"Number of retries to schedule the pod on scheduling failures. Use <= 0 to retry indefinitely.")
+	config.Debug = pluginConfig.Debug
+	config.FallbackOnNoOffers = pluginConfig.FallbackOnNoOffers
+	config.RetryOnNoOffers = pluginConfig.RetryOnNoOffers
 
-	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+	if pluginConfig.NumRetriesOnFailure > 0 {
+		config.NumRetriesOnFailure = pluginConfig.NumRetriesOnFailure
+	}
 
-	cliflag.SetUsageAndHelpFunc(cmd, nfs, cols)
+	durationRefs := []*durationAndRef{
+		{duration: pluginConfig.MinDelayOnFailure, ref: &config.MinDelayOnFailure},
+		{duration: pluginConfig.MaxDelayOnFailure, ref: &config.MaxDelayOnFailure},
+		{duration: pluginConfig.RequeuePeriod, ref: &config.RequeuePeriod},
+		{duration: pluginConfig.CallTimeout, ref: &config.CallTimeout},
+		{duration: pluginConfig.UpdateWorkerPeriod, ref: &config.UpdateWorkerPeriod},
+	}
 
-	return fs
+	for _, durationRef := range durationRefs {
+		if durationRef.duration == "" {
+			continue
+		}
+
+		if d, err := time.ParseDuration(durationRef.duration); err == nil && d > time.Duration(0) {
+			*durationRef.ref = d
+		}
+	}
+
+	if config.MinDelayOnFailure >= config.MaxDelayOnFailure {
+		//nolint:gomnd
+		config.MinDelayOnFailure = config.MaxDelayOnFailure / 2
+	}
+
+	if pluginConfig.PlannerNodeQueueSize > 0 {
+		config.PlannerNodeQueueSize = pluginConfig.PlannerNodeQueueSize
+	}
+
+	return &config
 }

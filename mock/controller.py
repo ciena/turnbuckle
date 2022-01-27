@@ -106,6 +106,39 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
             logging.error("unable to query rule providers: {}".format(ex))
             return ruleprovider_pb2.EvaluationResponse(compliance='Compliant',
                                                        reason='unable to access k8s API')
+
+    def getRuleCompliance(self, ruleproviders, rule, source):
+        # Walk the list of returned items and see if we have a match for
+        # the reference to get the compliance configured against the rule
+        for item in ruleproviders['items']:
+
+            if item['spec']['rule'] != rule.name:
+                continue
+
+            for target in item['spec']['targets']:
+                ref = target['reference']
+                parts = ref.split(":")
+                count = len(parts)
+                if count == 1:  # apiVersion, kind, name
+                    ref = '.*:.*:.*:.*:{}'.format(parts[0])
+                elif count == 2:  # apiVersion, kind, name
+                    ref = '.*:.*:.*:{}:{}'.format(parts[0],
+                                                  parts[1])
+                elif count == 3:  # apiVersion, kind, name
+                    ref = '.*:.*:{}:{}:{}'.format(parts[0],
+                                                  parts[1],
+                                                  parts[2])
+                elif count == 4:  # ns, apiVersion, kind, name
+                    ref = '.*:{}:{}:{}:{}'.format(parts[0],
+                                                  parts[1],
+                                                  parts[2],
+                                                  parts[3])
+
+                if re.match(ref, source) is not None:
+                    return item['spec']['value']
+
+        return 'Limit'
+
     def EndpointCost(self, request, context):
         logging.getLogger()
         try:
@@ -120,6 +153,14 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
                                           request.source.apiVersion,
                                           request.source.kind,
                                           request.source.name)
+
+            ruleproviders = api.list_cluster_custom_object('constraint.ciena.com', 'v1',
+                                                           'ruleproviders')
+
+            # sort the list of returned items based on priority, high to low
+            ruleproviders['items'].sort(key=lambda x: x['spec']['priority'], reverse=True)
+
+
             # Walk the list of returned items and see if we have a match for
             # the request
             for item in ret['items']:
@@ -145,19 +186,24 @@ class RuleProviderServicer(ruleprovider_pb2_grpc.RuleProviderServicer):
                 if re.match(target, ref) is not None:
                     logging.debug('costprovider match found for {}, rule {}'.format(ref, request.rule.name))
                     nc = []
+                    compliance = self.getRuleCompliance(ruleproviders, request.rule, ref)
+                    logging.debug('ruleprovider compliance at {} for rule {}'.format(compliance, request.rule.name))
+
                     for eligibleNode in request.eligibleNodes:
                         node = '{}:{}'.format(request.source.cluster, eligibleNode)
                         cost = -1
-                        for value in item['spec']['values']:
-                            n = value['node']
-                            c = value['cost']
-                            parts = n.split(':')
-                            if len(parts) == 1:
-                                # use node name
-                                n = '.*:{}'.format(parts[0])
-                            if re.match(n, node) is not None:
-                                cost = c
-                                break
+                        if compliance != 'Violation':
+                            for value in item['spec']['values']:
+                                n = value['node']
+                                c = value['cost']
+                                parts = n.split(':')
+                                if len(parts) == 1:
+                                    # use node name
+                                    n = '.*:{}'.format(parts[0])
+                                if re.match(n, node) is not None:
+                                    cost = c
+                                    break
+
                         logging.debug('adding node {} with cost {}'.format(eligibleNode, cost))
                         nc.append(ruleprovider_pb2.NodeCost(node=eligibleNode, cost=cost))
 

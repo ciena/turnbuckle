@@ -30,7 +30,6 @@ SCHEDULER_IMG ?= $(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
 else
 SCHEDULER_IMG ?= $(DOCKER_REGISTRY)/$(DOCKER_SCHEDULER_REPOSITORY):$(DOCKER_TAG)
 endif
-SCHEDULER_DEBUG = true
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
@@ -124,6 +123,10 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+.PHONY: generate-plugin-args
+generate-plugin-args: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./internal/pkg/scheduler/config.go"
+
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -134,7 +137,7 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: ## Run status code analysis against code.
-	golangci-lint run ./...
+	golangci-lint run -c .golangci.yaml --sort-results --tests --timeout 15m ./...
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
@@ -152,7 +155,7 @@ build-%: deps-% fmt vet
 
 deps-manager: generate protos
 
-deps-scheduler: protos
+deps-scheduler: generate-plugin-args protos
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -210,7 +213,6 @@ endif
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-	kubectl apply -f examples/policies.yaml
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -224,7 +226,7 @@ deploy-manager:manifests kustomize ## Deploy controller to the K8s cluster speci
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 deploy-scheduler:
-	sed -e "s;IMAGE_SPEC;$(SCHEDULER_IMG);g" -e "s;DEBUG_SPEC;$(SCHEDULER_DEBUG);g" ./deploy/constraint-policy-scheduler.yaml | kubectl apply -f -
+	sed -e "s;IMAGE_SPEC;$(SCHEDULER_IMG);g" ./deploy/constraint-policy-scheduler.yaml | kubectl apply -f -
 
 .PHONY: undeploy undeploy-manager undeploy-scheduler
 undeploy: undeploy-scheduler undeploy-manager

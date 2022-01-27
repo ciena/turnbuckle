@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package scheduler
 
 import (
@@ -30,10 +31,13 @@ import (
 )
 
 const (
+	// Name of the scheduling plugin.
 	Name              = "ConstraintPolicyScheduling"
 	preFilterStateKey = "PreFilter" + Name
 )
 
+// ConstraintPolicyScheduling instance state for the the policy scheduling
+// plugin.
 type ConstraintPolicyScheduling struct {
 	scheduler *ConstraintPolicyScheduler
 	fh        framework.Handle
@@ -50,20 +54,38 @@ var (
 	_ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 )
 
-func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) {
+// New create a new framework plugin intance.
+// nolint:ireturn
+func New(
+	obj runtime.Object, handle framework.Handle) (framework.Plugin, error,
+) {
 	var log logr.Logger
+
+	var config *ConstraintPolicySchedulerOptions
+
+	defaultConfig := DefaultConstraintPolicySchedulerConfig()
+
+	if obj != nil {
+		//nolint: forcetypeassert
+		pluginConfig := obj.(*ConstraintPolicySchedulingArgs)
+		config = parsePluginConfig(pluginConfig, defaultConfig)
+	} else {
+		config = defaultConfig
+	}
 
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
 		if err != nil {
 			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 		}
+
 		log = zapr.NewLogger(zapLog)
 	} else {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
 			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 		}
+
 		log = zapr.NewLogger(zapLog)
 	}
 
@@ -73,17 +95,11 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	constraintPolicyClient, err := constraint_policy_client.New(kubeconfig, log.WithName("constraint-policy-client"))
 	if err != nil {
 		log.Error(err, "Error initializing constraint policy client interface")
-		return nil, err
+
+		return nil, fmt.Errorf("about to initialize constraint policy interface: %w", err)
 	}
 
-	constraintPolicyScheduler := NewScheduler(ConstraintPolicySchedulerOptions{
-		NumRetriesOnFailure: config.NumRetriesOnFailure,
-		MinDelayOnFailure:   config.MinDelayOnFailure,
-		MaxDelayOnFailure:   config.MaxDelayOnFailure,
-		FallbackOnNoOffers:  config.FallbackOnNoOffers,
-		RetryOnNoOffers:     config.RetryOnNoOffers,
-	},
-		clientset, handle, constraintPolicyClient,
+	constraintPolicyScheduler := NewScheduler(*config, clientset, handle, constraintPolicyClient,
 		log.WithName("constraint-policy").WithName("scheduler"))
 
 	pluginLogger := log.WithName("scheduling-plugin")
@@ -102,26 +118,31 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error) {
 	state, err := cycleState.Read(preFilterStateKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to read cycle state: %w", err)
 	}
 
 	if state == nil {
-		return nil, errors.New("assignment-state-nil")
+		return nil, ErrNilAssignmentState
 	}
 
 	assignmentState, ok := state.(*preFilterState)
 	if !ok {
-		return nil, fmt.Errorf("%+v convert to node assignment state error", state)
+		return nil, fmt.Errorf("%+v convert to node assignment state error: %w",
+			state, ErrInvalidAssignmentState)
 	}
 
 	return assignmentState, nil
 }
 
+// Clone isn't needed for our state data.
+// nolint:ireturn
 func (s *preFilterState) Clone() framework.StateData {
 	return s
 }
 
-func (c *ConstraintPolicyScheduling) createPreFilterState(ctx context.Context, pod *v1.Pod) (*preFilterState, *framework.Status) {
+func (c *ConstraintPolicyScheduling) createPreFilterState(
+	ctx context.Context,
+	pod *v1.Pod) (*preFilterState, *framework.Status) {
 	allNodes, err := c.fh.SnapshotSharedLister().NodeInfos().List()
 	if err != nil {
 		return nil, framework.AsStatus(err)
@@ -135,44 +156,67 @@ func (c *ConstraintPolicyScheduling) createPreFilterState(ctx context.Context, p
 
 	if len(eligibleNodes) == 0 {
 		c.log.V(1).Info("pre-filter-no-nodes-eligible")
+
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
-	node, err := c.scheduler.FindBestNode(pod, eligibleNodes)
+	node, err := c.scheduler.FindBestNode(ctx, pod, eligibleNodes)
 	if err != nil {
-		return nil, framework.AsStatus(err)
-	}
+		if errors.Is(err, ErrNoNodesFound) {
+			return nil, framework.NewStatus(framework.Unschedulable)
+		}
 
-	if node == nil {
-		return nil, framework.NewStatus(framework.Unschedulable)
+		return nil, framework.AsStatus(err)
 	}
 
 	return &preFilterState{node: node.Name}, framework.NewStatus(framework.Success)
 }
 
+// Name returns the name of the scheduler.
 func (c *ConstraintPolicyScheduling) Name() string {
 	return Name
 }
 
-func (c *ConstraintPolicyScheduling) PreFilter(ctx context.Context, state *framework.CycleState, pod *v1.Pod) *framework.Status {
+// PreFilter pre-filters the pods to be placed.
+func (c *ConstraintPolicyScheduling) PreFilter(
+	parentCtx context.Context,
+	state *framework.CycleState,
+	pod *v1.Pod) *framework.Status {
 	c.log.V(1).Info("prefilter", "pod", pod.Name)
 
+	//nolint: gomnd
+	ctx, cancel := context.WithTimeout(parentCtx, c.scheduler.options.CallTimeout*2)
 	assignmentState, status := c.createPreFilterState(ctx, pod)
+
+	cancel()
+
 	if !status.IsSuccess() {
+		// check if we have a NoOffers match.
+		// In this case, we let the scheduler pick the node
+		if status.Equal(framework.AsStatus(ErrNoOffers)) {
+			return framework.NewStatus(framework.Success)
+		}
+
 		return status
 	}
 
+	c.log.V(1).Info("prefilter-state-assignment", "pod", pod.Name, "node", assignmentState.node)
 	state.Write(preFilterStateKey, assignmentState)
 
 	return status
 }
 
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
+// nolint:ireturn
 func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
 }
 
-func (c *ConstraintPolicyScheduling) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+// Score scores the eligible nodes.
+func (c *ConstraintPolicyScheduling) Score(
+	ctx context.Context,
+	state *framework.CycleState,
+	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
 	c.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
 	assignmentState, err := getPreFilterState(state)
@@ -189,6 +233,8 @@ func (c *ConstraintPolicyScheduling) Score(ctx context.Context, state *framework
 	return framework.MaxNodeScore, framework.NewStatus(framework.Success)
 }
 
+// ScoreExtensions calcuates scores for the extensions.
+// nolint:ireturn
 func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }

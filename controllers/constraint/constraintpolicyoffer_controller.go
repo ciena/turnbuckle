@@ -51,7 +51,11 @@ type visitState struct {
 }
 
 func (r *ConstraintPolicyOfferReconciler) checkAndUpdateStatus(
-	offer *cpv1.ConstraintPolicyOffer, count, compliant int) error {
+	ctx context.Context,
+	offer *cpv1.ConstraintPolicyOffer,
+	count,
+	compliant int,
+) error {
 	if offer.Status.BindingCount != count ||
 		offer.Status.CompliantBindingCount != compliant ||
 		offer.Status.BindingSelector != labelRef+"="+offer.Name {
@@ -60,7 +64,7 @@ func (r *ConstraintPolicyOfferReconciler) checkAndUpdateStatus(
 		offer.Status.BindingSelector = labelRef + "=" + offer.Name
 
 		// nolint:wrapcheck
-		return r.Client.Status().Update(context.TODO(), offer)
+		return r.Client.Status().Update(ctx, offer)
 	}
 
 	return nil
@@ -79,9 +83,9 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Lookup the offer being reconciled
 	var offer cpv1.ConstraintPolicyOffer
-	if err := r.Client.Get(context.TODO(), req.NamespacedName, &offer); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &offer); err != nil {
 		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
-			if r.Client.DeleteAllOf(context.TODO(), &cpv1.ConstraintPolicyBinding{},
+			if r.Client.DeleteAllOf(ctx, &cpv1.ConstraintPolicyBinding{},
 				client.InNamespace(req.NamespacedName.Namespace),
 				client.MatchingLabels(map[string]string{
 					labelRef: req.NamespacedName.Name,
@@ -103,7 +107,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Lookup all the bindings owned by this offer
 	var bindings cpv1.ConstraintPolicyBindingList
-	if err := r.Client.List(context.TODO(), &bindings,
+	if err := r.Client.List(ctx, &bindings,
 		client.InNamespace(req.Namespace),
 		client.MatchingLabels(map[string]string{
 			labelRef: req.NamespacedName.Name,
@@ -151,7 +155,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		found.SetKind(target.Kind)
 		found.SetAPIVersion(target.APIVersion)
 
-		if err := r.Client.List(context.TODO(), &found,
+		if err := r.Client.List(ctx, &found,
 			client.InNamespace(req.NamespacedName.Namespace),
 			client.MatchingLabels(set)); err != nil {
 			if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
@@ -186,6 +190,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 		targets := make(map[string]types.Reference)
 
+		// nolint:varnamelen
 		for i := 0; i < len(keys); i++ {
 			targets[keys[i]] = types.Reference{
 				Cluster:    permutation[i].Cluster,
@@ -216,7 +221,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 		logger.V(0).Info("CREATE", lkName, bindingName)
 
-		if err := r.Client.Create(context.TODO(), &binding); err != nil {
+		if err := r.Client.Create(ctx, &binding); err != nil {
 			logger.V(0).Error(err, "binding-creation")
 
 			continue
@@ -242,14 +247,14 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			continue
 		}
 
-		if err := r.Client.Delete(context.TODO(), visit.Binding); err != nil {
+		if err := r.Client.Delete(ctx, visit.Binding); err != nil {
 			if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 				logger.V(0).Error(err, "delete-binding", lkName, name)
 			}
 		}
 	}
 
-	if err := r.checkAndUpdateStatus(&offer, count, compliant); err != nil {
+	if err := r.checkAndUpdateStatus(ctx, &offer, count, compliant); err != nil {
 		logger.V(0).Error(err, "status-update", lkName, offer.ObjectMeta.Name)
 
 		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil

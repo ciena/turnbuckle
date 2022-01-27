@@ -107,6 +107,7 @@ type ConstraintPolicyBindingStatus struct {
 // ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
 //+genclient.
 type ConstraintPolicyBinding struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -120,6 +121,7 @@ type ConstraintPolicyBinding struct {
 
 // ConstraintPolicyBindingList contains a list of ConstraintPolicyBinding.
 type ConstraintPolicyBindingList struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
