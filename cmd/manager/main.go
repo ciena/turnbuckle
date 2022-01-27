@@ -116,6 +116,7 @@ func main() {
 
 	if config.ShowVersion {
 		if config.ShowVersionAsJSON {
+			// nolint:errchkjson
 			bytes, _ := json.Marshal(controllers.Version())
 			fmt.Fprintln(os.Stdout, string(bytes))
 		} else {

@@ -66,6 +66,7 @@ func detailsAreDifferent(left, right []*cpv1.ConstraintPolicyBindingStatusDetail
 		return right[i].Policy < right[j].Policy
 	})
 
+	// nolint:varnamelen
 	for i := range left {
 		if left[i].Policy != right[i].Policy ||
 			left[i].Compliance != right[i].Compliance ||
@@ -91,8 +92,11 @@ func detailsAreDifferent(left, right []*cpv1.ConstraintPolicyBindingStatusDetail
 	return false
 }
 
-// nolint:lll
-func (r *ConstraintPolicyBindingReconciler) evaluateRule(binding *cpv1.ConstraintPolicyBinding, rule *cpv1.ConstraintPolicyRule, svc *corev1.Service) (string, string) {
+func (r *ConstraintPolicyBindingReconciler) evaluateRule(
+	ctx context.Context,
+	binding *cpv1.ConstraintPolicyBinding,
+	rule *cpv1.ConstraintPolicyRule, svc *corev1.Service,
+) (string, string) {
 	dnsName := fmt.Sprintf("%s.%s.svc.cluster.local:5309", svc.Name, svc.Namespace)
 
 	conn, err := grpc.Dial(dnsName, grpc.WithInsecure())
@@ -110,7 +114,7 @@ func (r *ConstraintPolicyBindingReconciler) evaluateRule(binding *cpv1.Constrain
 
 	client := ruleprovider.NewRuleProviderClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	rctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	greq := ruleprovider.EvaluateRequest{
@@ -122,7 +126,7 @@ func (r *ConstraintPolicyBindingReconciler) evaluateRule(binding *cpv1.Constrain
 		},
 	}
 
-	gresp, err := client.Evaluate(ctx, &greq)
+	gresp, err := client.Evaluate(rctx, &greq)
 	if err != nil {
 		return types.ComplianceError, err.Error()
 	}
@@ -131,6 +135,7 @@ func (r *ConstraintPolicyBindingReconciler) evaluateRule(binding *cpv1.Constrain
 }
 
 func (r *ConstraintPolicyBindingReconciler) checkAndUpdateStatus(
+	ctx context.Context,
 	binding *cpv1.ConstraintPolicyBinding,
 	compliance, reason string,
 	details []*cpv1.ConstraintPolicyBindingStatusDetail) error {
@@ -163,7 +168,7 @@ func (r *ConstraintPolicyBindingReconciler) checkAndUpdateStatus(
 
 	if changed {
 		// nolint:wrapcheck
-		return r.Client.Status().Update(context.TODO(), binding)
+		return r.Client.Status().Update(ctx, binding)
 	}
 
 	return nil
@@ -183,7 +188,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 
 	// lookup binding in question
 	var binding cpv1.ConstraintPolicyBinding
-	if err := r.Client.Get(context.TODO(), req.NamespacedName, &binding); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &binding); err != nil {
 		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			// if gone, no need to do anything
 			logger.V(1).Info("not-found", lkNamespace, req.Namespace,
@@ -212,7 +217,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 
 	// Get the offer associated with this binding
 	var offer cpv1.ConstraintPolicyOffer
-	if err := r.Client.Get(context.TODO(), ktypes.NamespacedName{
+	if err := r.Client.Get(ctx, ktypes.NamespacedName{
 		Namespace: req.Namespace, Name: binding.Spec.Offer,
 	}, &offer); err != nil {
 		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
@@ -232,7 +237,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	// Iterate over offers associated with the binding and collect the policies
 	for _, pname := range offer.Spec.Policies {
 		var policy cpv1.ConstraintPolicy
-		if err := r.Client.Get(context.TODO(), ktypes.NamespacedName{
+		if err := r.Client.Get(ctx, ktypes.NamespacedName{
 			Namespace: req.Namespace, Name: string(pname),
 		}, &policy); err != nil {
 			logger.V(0).Error(err, "policy-lookup-failed",
@@ -264,7 +269,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 
 			var svcs corev1.ServiceList
 			// nolint:gocritic
-			if err := r.Client.List(context.TODO(), &svcs,
+			if err := r.Client.List(ctx, &svcs,
 				client.InNamespace(req.Namespace),
 				client.MatchingLabels(map[string]string{fmt.Sprintf(providerLabel, rule.Name): "enabled"})); err != nil {
 				ruleDetail.Compliance = types.ComplianceError
@@ -279,7 +284,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 					logger.V(0).Info("multiple providers exists for rule", "rule",
 						rule.Name)
 				}
-				ruleDetail.Compliance, ruleDetail.Reason = r.evaluateRule(&binding, rule, &(svcs.Items[0]))
+				ruleDetail.Compliance, ruleDetail.Reason = r.evaluateRule(ctx, &binding, rule, &(svcs.Items[0]))
 			}
 
 			detail.RuleDetails = append(detail.RuleDetails, &ruleDetail)
@@ -332,8 +337,8 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	logger.V(1).Info("requeue binding evaluation", lkNamespace, binding.Namespace,
 		lkName, binding.Name, "period", period.String())
 
-	return ctrl.Result{RequeueAfter: period}, r.checkAndUpdateStatus(&binding,
-		compliance, reason, details)
+	return ctrl.Result{RequeueAfter: period}, r.checkAndUpdateStatus(ctx,
+		&binding, compliance, reason, details)
 }
 
 // SetupWithManager sets up the controller with the Manager.

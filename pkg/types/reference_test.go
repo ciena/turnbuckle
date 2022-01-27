@@ -149,6 +149,7 @@ func TestParseReference(t *testing.T) {
 }
 
 func toUnstructured(namespace, apiVersion, kind, name string) uv1.Unstructured {
+	// nolint:varnamelen
 	u := uv1.Unstructured{}
 
 	if len(namespace+apiVersion+kind+name) == 0 {
@@ -413,6 +414,7 @@ func TestPermutations(t *testing.T) {
 	for _, test := range tests {
 		rm := ReferenceListMap{}
 
+		// nolint:varnamelen
 		for k, v := range test.listmap {
 			rl := ReferenceList{}
 

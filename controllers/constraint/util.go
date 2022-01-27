@@ -22,6 +22,7 @@ const (
 	apiError    = "api-error"
 )
 
+// nolint:varnamelen
 func areStringSlicesEqual(a, b []string) bool {
 	// if both are nil then consider them equal
 	if a == nil && b == nil {

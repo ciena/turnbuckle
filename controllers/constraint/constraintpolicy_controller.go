@@ -48,7 +48,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// fetch the policy in question
 	var policy cpv1.ConstraintPolicy
-	if err := r.Client.Get(context.TODO(), req.NamespacedName, &policy); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &policy); err != nil {
 		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			logger.V(1).Info("not-found", lkNamespace, req.NamespacedName.Namespace,
 				lkName, req.NamespacedName.Name)
@@ -78,7 +78,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !areStringSlicesEqual(policy.Status.Table.Rules, list) {
 		policy.Status.Table.Rules = list
-		if err := r.Client.Status().Update(context.TODO(), &policy); err != nil {
+		if err := r.Client.Status().Update(ctx, &policy); err != nil {
 			logger.V(1).Info("status-update-error", "error", err.Error())
 
 			// nolint:wrapcheck

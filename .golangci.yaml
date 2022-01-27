@@ -267,7 +267,33 @@ linters-settings:
     replace-local: false
     # List of allowed `replace` directives. Default is empty.
     replace-allow-list:
-      - launchpad.net/gocheck
+      - github.com/opencontainers/runc
+      - k8s.io/api
+      - k8s.io/apiextensions-apiserver
+      - k8s.io/apimachinery
+      - k8s.io/apiserver
+      - k8s.io/cli-runtime
+      - k8s.io/client-go
+      - k8s.io/cloud-provider
+      - k8s.io/cluster-bootstrap
+      - k8s.io/code-generator
+      - k8s.io/component-base
+      - k8s.io/component-helpers
+      - k8s.io/controller-manager
+      - k8s.io/cri-api
+      - k8s.io/csi-translation-lib
+      - k8s.io/kube-aggregator
+      - k8s.io/kube-controller-manager
+      - k8s.io/kube-proxy
+      - k8s.io/kube-scheduler
+      - k8s.io/kubectl
+      - k8s.io/kubelet
+      - k8s.io/kubernetes
+      - k8s.io/legacy-cloud-providers
+      - k8s.io/metrics
+      - k8s.io/mount-utils
+      - k8s.io/pod-security-admission
+      - k8s.io/sample-apiserver
     # Allow to not explain why the version has been retracted in the `retract` directives. Default is false.
     retract-allow-no-explanation: false
     # Forbid the use of the `exclude` directives. Default is false.
@@ -375,6 +401,38 @@ linters-settings:
       # see https://github.com/julz/importas#use-regular-expression for details
       - pkg: knative.dev/serving/pkg/apis/(\w+)/(v[\w\d]+)
         alias: $1$2
+
+  linters-settings:
+  varnamelen:
+    # The minimum length of a variable's name that is considered "long".
+    # Variable names that are at least this long will be ignored.
+    # Default: 3
+    min-name-length: 2
+    # Check method receiver names.
+    # Default: false
+    check-receiver: false
+    # Check named return values.
+    # Default: false
+    check-return: true
+    # Ignore "ok" variables that hold the bool return value of a type assertion.
+    # Default: false
+    ignore-type-assert-ok: true
+    # Ignore "ok" variables that hold the bool return value of a map index.
+    # Default: false
+    ignore-map-index-ok: true
+    # Ignore "ok" variables that hold the bool return value of a channel receive.
+    # Default: false
+    ignore-chan-recv-ok: true
+    # Optional list of variable names that should be ignored completely.
+    # Default: []
+    ignore-names:
+      - err
+    # Optional list of variable declarations that should be ignored completely.
+    # Entries must be in the form of "<variable name> <type>" or "<variable name> *<type>"
+    # for variables, or "const <name>" for constants.
+    # Default: []
+    ignore-decls:
+      - t testing.T
 
   ireturn:
     # ireturn allows using `allow` and `reject` settings at the same time.

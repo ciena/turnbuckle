@@ -9,11 +9,8 @@ require (
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
 	github.com/opencontainers/runc v1.0.3 // indirect
-	github.com/spf13/cobra v1.1.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.19.0
-	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.22.3
@@ -26,6 +23,7 @@ require (
 )
 
 replace (
+	github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.3
 	k8s.io/api => k8s.io/api v0.22.3
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.3
 	k8s.io/apimachinery => k8s.io/apimachinery v0.22.3

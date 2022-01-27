@@ -227,6 +227,7 @@ func (c *ConstraintPolicyScheduling) Score(
 }
 
 // ScoreExtensions calcuates scores for the extensions.
+// nolint:ireturn
 func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }

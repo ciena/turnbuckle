@@ -63,6 +63,7 @@ type ConstraintPolicySpec struct {
 
 // ConstraintPolicy is the Schema for the constraintpolicies API.
 type ConstraintPolicy struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -75,6 +76,7 @@ type ConstraintPolicy struct {
 
 // ConstraintPolicyList contains a list of ConstraintPolicy.
 type ConstraintPolicyList struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`

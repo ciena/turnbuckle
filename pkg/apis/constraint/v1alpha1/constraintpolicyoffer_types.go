@@ -118,6 +118,7 @@ type ConstraintPolicyOfferStatus struct {
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
 //+genclient.
 type ConstraintPolicyOffer struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -130,6 +131,7 @@ type ConstraintPolicyOffer struct {
 
 // ConstraintPolicyOfferList contains a list of ConstraintPolicyOffer.
 type ConstraintPolicyOfferList struct {
+	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	// nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
