@@ -12,8 +12,8 @@ spec:
       reference: ".*:.*:.*:Pod:hello-client-.*"
     - name: destination
       reference: ".*:.*:.*:Pod:hello-server-.*"
-  value: Limit
-  reason: still working
+  value: Compliant
+  reason: OK
 ---
 apiVersion: constraint.ciena.com/v1
 kind: RuleProvider
@@ -26,5 +26,33 @@ spec:
   targets:
     - name: default
       reference: ".*:.*:.*:.*:.*"
-  value: Violation
-  reason: Not good
+  value: Compliant
+  reason: OK
+---
+apiVersion: constraint.ciena.com/v1
+kind: RuleProvider
+metadata:
+  name: test3
+  namespace: default
+spec:
+  priority: 10
+  rule: space
+  targets:
+    - name: default
+      reference: ".*:.*:.*:.*:.*"
+  value: Compliant
+  reason: OK
+---
+apiVersion: constraint.ciena.com/v1
+kind: RuleProvider
+metadata:
+  name: test4
+  namespace: default
+spec:
+  priority: 10
+  rule: cpu-count
+  targets:
+    - name: default
+      reference: ".*:.*:.*:.*:.*"
+  value: Compliant
+  reason: OK

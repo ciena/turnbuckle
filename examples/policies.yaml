@@ -84,28 +84,15 @@ spec:
 apiVersion: constraint.ciena.com/v1alpha1
 kind: ConstraintPolicyOffer
 metadata:
-  name: complex-offer
+  name: complex-offer-client
   namespace: default
 spec:
   targets:
-    - name: one
-      apiVersion: v1
+    - apiVersion: v1
       kind: Pod
       labelSelector:
         matchLabels:
           app: hello-client
-    - name: two
-      apiVersion: v1
-      kind: Pod
-      labelSelector:
-        matchLabels:
-          app: hello-server
-    - name: three
-      apiVersion: v1
-      kind: Pod
-      labelSelector:
-        matchLabels:
-          app: hello-monitor
   policies:
     - complex
   violationPolicy: Evict

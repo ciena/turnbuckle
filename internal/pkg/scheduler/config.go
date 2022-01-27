@@ -22,8 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // ConstraintPolicySchedulingArgs defines the parameters for ConstraintPolicyScheduling plugin.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ConstraintPolicySchedulingArgs struct {
 	// nolint:tagliatelle
 	metav1.TypeMeta      `json:",inline"`

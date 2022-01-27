@@ -30,9 +30,11 @@ func main() {
 	)
 
 	logs.InitLogs()
-	defer logs.FlushLogs()
 
 	if err := command.Execute(); err != nil {
+		logs.FlushLogs()
 		os.Exit(1)
 	}
+
+	logs.FlushLogs()
 }
