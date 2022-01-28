@@ -1,0 +1,31 @@
+---
+apiVersion: constraint.ciena.com/v1
+kind: CostProvider
+metadata:
+  name: latency-cost
+  namespace: default
+spec:
+  priority: 10
+  rule: latency
+  target: ".*:.*:.*:Pod:hello.*"
+  values:
+   - node: ".*:.*control*"
+     cost: 10
+   - node: ".*:.*"
+     cost: 3
+---
+apiVersion: constraint.ciena.com/v1
+kind: RuleProvider
+metadata:
+  name: latency-rule
+  namespace: default
+spec:
+  priority: 10
+  rule: latency
+  targets:
+    - name: source
+      reference: ".*:.*:.*:Pod:hello-client-.*"
+    - name: destination
+      reference: ".*:.*:.*:Pod:hello-server-.*"
+  value: Violation
+  reason: network too slow
