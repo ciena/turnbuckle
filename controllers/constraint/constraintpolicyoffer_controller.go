@@ -208,6 +208,14 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 				Labels: map[string]string{
 					labelRef: req.NamespacedName.Name,
 				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: offer.APIVersion,
+						Kind:       offer.Kind,
+						Name:       offer.ObjectMeta.Name,
+						UID:        offer.UID,
+					},
+				},
 			},
 			Spec: cpv1.ConstraintPolicyBindingSpec{
 				Offer:   offer.ObjectMeta.Name,
