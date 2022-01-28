@@ -1,0 +1,36 @@
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicy
+metadata:
+  name: fast-policy
+  namespace: default
+spec:
+  rules:
+    - name: latency
+      request: "20ms"
+      limit: "50ms"
+---
+apiVersion: constraint.ciena.com/v1alpha1
+kind: ConstraintPolicyOffer
+metadata:
+  name: fast-offer
+  namespace: default
+spec:
+  targets:
+    - name: source
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-client
+    - name: destination
+      apiVersion: v1
+      kind: Pod
+      labelSelector:
+        matchLabels:
+          app: hello-server
+  policies:
+    - fast-policy
+  violationPolicy: Evict
+  period: 5s
+  grace: 1m
