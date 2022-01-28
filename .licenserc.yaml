@@ -12,5 +12,11 @@ header:
     - 'VERSION'
     - 'PROJECT'
     - 'vendor/**'
+    - '.*/**'
+    - '.*'
+    - 'config/**'
+    - 'go.sum'
+    - '**/**.pb.go'
+    - '**/*_pb2_grpc.py'
 
   comment: on-failure
