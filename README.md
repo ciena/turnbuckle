@@ -6,7 +6,7 @@ Turnbuckle - Extensible constraint policy for Kubernetes
 
 ## Summary
 
-Extensible constraint policy model that uses labels selection to bind defined
+Extensible constraint policy model that uses label selection to bind defined
 constraints to resources (deployments, pods, services, service meshes, etc.)
 enabling cross workload and cross cluster scheduling based on constraint
 relationships.
@@ -14,23 +14,26 @@ relationships.
 ## Definition
 
 A constraint policy is a set of defined constraint rules, where each
-constraint rule specifies a constraint and the requested and limit values for
-that constraint. Examples of constraints include:
+constraint rule specifies a constraint, the requested value, and limit value for
+that constraint. Thge system does not include any predefined constraints and
+only provides a framework for definition constraints as well as a scheduler for
+leveraging those constraints.
+
+Examples of constraints include:
 
 - _Latency_ -- network level constraint used to indicate delay in
-  communication between workloads.
+  communication between resources
 
 - _Jitter_ -- network level constraint used to indicate variable in latency in
-  communication between workloads.
+  communication between wresourcesorkloads.
 
 - _Bandwidth_ -- network level constraint used to indicate bandwidth required
-   between resources
+   between resources.
 
-- _Encryption_ -- encryption of network communication between resources
+- _Encryption_ -- encryption of network communication between resources.
 
 (As the project defines an extensible constraint model this list is not meant
-to List is not meant to be comprehensive or imply implementation in this
-project)
+to be comprehensive or imply implementation in this project)
 
 ## Extensibility
 
@@ -42,7 +45,7 @@ individual deployments without having to release the core of the extension.
 
 ### Scheduler
 
-This project provides and extensions to the scheduler to account for the
+This project provides an extension to the scheduler to account for the
 constraint policies. This may [optionally] include interaction with external
 capabilities to modify physical infrastructure on which the platform is run
 and / or by which components on the platform communicate.
@@ -50,8 +53,8 @@ and / or by which components on the platform communicate.
 ### Descheduler (https://github.com/kubernetes-sigs/descheduler)
 
 This project leverages the work in the _Descheduler_ SIG to manage if/when a
-resource is to be evicted from a Node based on the violation of a  constraint
-policy rule. This is currently provided as `patch` against a specific release
+resource is to be evicted from a Node based on the violation of a constraint
+policy. This is currently provided as `patch` against a specific release
 of the descheduler project.
 
 ### Multicluster (https://github.com/kubernetes-sigs/kubefed)
@@ -91,6 +94,7 @@ spec:
       request: true
     - name: encrypted-bit-count
       request: 2048
+      limit: 1024
 ```
 
 #### Example 2 - Bandwidth Constraint
@@ -119,8 +123,6 @@ spec:
     - name: latency
       request: 5ms
       limit: 20ms
-  period: 1m
-  grace: 2m
 ```
 
 ### ConstraintPolicyOffer
@@ -178,21 +180,23 @@ spec:
 
 ### Period and Grace
 
-The resource type definitions contain attributes referenced as `period` and
-`grace`. These attributes refer to how often (`period`) the constraint policy
-should be evaluated and how long (`grace`) that the  constraint policy
-evaluation is outside the specified range before it is considered a violation.
+The `ConstraintPolicyOffer` resource type definition contain attributes
+referenced as `period` and `grace`. These attributes refer to how often
+(`period`) the constraint policy should be evaluated and how long (`grace`)
+that the  constraint policy evaluation is outside the specified range before
+it is considered a violation.
 
-These attributes will be leveraged to update the status attributes when
-evaluating policies.
+These attributes will be leveraged to update the status of the
+`ConstraintPolicyBinding`s when evaluating policies associated with a 
+binding.
 
 ### ViolationPolicy
 
 The `ViolationPolicy` attribute references how the _system_ should react when
 a constraint policy is violated. The values include `Ignore`, `Mediate`, and
-`Evict`.
+`Evict`. This violation policy is utilized by the descheduler.
 
-- `Ignore` --  indicates that the system should take no action when a policy
+- `Ignore` -- indicates that the system should take no action when a policy
   is violated.
 
 - `Mediate` -- indicates that the system should attempt to bring the policy
@@ -207,7 +211,7 @@ a constraint policy is violated. The values include `Ignore`, `Mediate`, and
 A `ConstraintPolicyOffer` specifies a selector via which the subjects of of a
 policy are identified. Because this selector may map to multiple Kubernetes
 resources instances of a ConstraintPolicyOffer are concretely realized with
-the creation of a `ConstraintPolicyBinding` for each subject pair.
+the creation of a `ConstraintPolicyBinding` for each set of subjects.
 
 The lifecycle of ConstraintPolicyBinding instances are managed by the
 ConstraintPolicyOffer controller.
@@ -238,6 +242,7 @@ and evaluation capabilities of this project.
 ```go
 service RuleProvider {
     rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+    rpc EndpointCost(EndpointCostRequest) returns (EndpointCostResponse);
 }
 ```
 
@@ -255,6 +260,10 @@ The advantage of providing an exposed mechanism to bind the provider to an
 implementation is that it enables visibility of the binding to the operator as
 well as it enables the operator to dynamically modify the binding including
 the ability to upgrade a operator in a prescriptive manner.
+
+The `EndpointCost` method is leveraged by the constraint policy scheduler
+extension to evaluate the "fitness" of a given node based on the a 
+constraint policy rule.
 
 ## Implementation considerations
 
