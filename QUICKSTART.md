@@ -1,13 +1,13 @@
 # Quick start guide
 
-The purpose of this document is to a short walk through of building, deploying,
+The purpose of this document is to do a short walkthrough of building, deploying,
 and using the constraint policy resources as a way to help demonstrate the
 capability.
 
 # Local Kubernetes cluster
 
 This quick start guide use Kubernetes in Docker (KinD) to create a Kubernetes
-cluster for the walk through. If you choose to use your own cluster you will
+cluster for the walkthrough. If you choose to use your own cluster you will
 have to adjust the commands to your environment.
 
 Find instructions to install KinD at `https://kind.sigs.k8s.io/docs/user/quick-start/#installation`.
@@ -117,7 +117,7 @@ docker push $DOCKER_REGISTRY/descheduler:cp
 
 ## Checkpoint
 
-At this point in the walkthough you should be able to see an output similar
+At this point in the walkthrough you should be able to see an output similar
 to the following when querying Kubernetes for crds, services, and pods.
 
 ```bash
@@ -190,7 +190,7 @@ Patch the `latency-rule` definition to return `Compliant`.
 kubectl patch ruleprovider latency-rule --type 'merge' -p '{"spec":{"value":"Compliant","reason":"ok"}}'
 ```
 
-Verify the rule is not returning `Compliant`.
+Verify the rule is now returning `Compliant`.
 
 ```bash
 $ kubectl get rp/latency-rule
@@ -198,7 +198,7 @@ NAME           RULE      PRIORITY   VALUE       AGE
 latency-rule   latency   10         Compliant   15m
 ```
 
-Pods will now be sccheduled to a node and created. This could take up to 100s
+Pods will now be scheduled to a node and created. This could take up to 100s
 based on default configured retry periods.
 
 ```bash
@@ -227,7 +227,7 @@ update the binding to the new value.
 kubectl patch ruleprovider latency-rule --type 'merge' -p '{"spec":{"value":"Limit","reason":"could not meet request"}}'
 ```
 
-Verify the rule is eturning `Limit`.
+Verify the rule is returning `Limit`.
 
 ```bash
 $ kubectl get rp/latency-rule
@@ -252,7 +252,7 @@ to eventually evict a pod after the configured `grace` period has expired.
 kubectl patch ruleprovider latency-rule --type 'merge' -p '{"spec":{"value":"Violation","reason":"network capability not available"}}'
 ```
 
-Verify the rule is eturning `Limit`.
+Verify the rule is returning `Limit`.
 
 ```bash
 $ kubectl get rp/latency-rule
