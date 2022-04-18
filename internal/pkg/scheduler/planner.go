@@ -96,11 +96,11 @@ func NewPlanner(
 		options:                options,
 		clientset:              clientset,
 		constraintPolicyClient: constraintPolicyClient,
-		log:            log,
-		nodeQueue:      make(chan *v1.Node, options.NodeQueueSize),
-		podUpdateQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		quit:           make(chan struct{}),
-		podToNodeMap:   make(map[ktypes.NamespacedName]string),
+		log:                    log,
+		nodeQueue:              make(chan *v1.Node, options.NodeQueueSize),
+		podUpdateQueue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		quit:                   make(chan struct{}),
+		podToNodeMap:           make(map[ktypes.NamespacedName]string),
 	}
 
 	addFunc := func(obj interface{}) {
