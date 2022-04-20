@@ -18,7 +18,7 @@ package main
 import (
 	"os"
 
-	cps "github.com/ciena/turnbuckle/internal/pkg/scheduler"
+	cps "github.com/ciena/turnbuckle/pkg/scheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
 )

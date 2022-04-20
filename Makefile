@@ -125,7 +125,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: generate-plugin-args
 generate-plugin-args: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./internal/pkg/scheduler/config.go"
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/scheduler/config.go"
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
