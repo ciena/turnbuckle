@@ -277,7 +277,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			}
 
 			var svcs corev1.ServiceList
-			//nolint:gocritic
+
 			if err := r.Client.List(ctx, &svcs,
 				client.InNamespace(req.Namespace),
 				client.MatchingLabels(map[string]string{fmt.Sprintf(providerLabel, rule.Name): "enabled"})); err != nil {
