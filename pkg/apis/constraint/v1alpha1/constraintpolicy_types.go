@@ -53,7 +53,7 @@ type ConstraintPolicySpec struct {
 	Rules []*ConstraintPolicyRule `json:"rules"`
 }
 
-// nolint:lll
+//nolint:lll
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:servedversion
@@ -63,9 +63,9 @@ type ConstraintPolicySpec struct {
 
 // ConstraintPolicy is the Schema for the constraintpolicies API.
 type ConstraintPolicy struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   ConstraintPolicySpec   `json:"spec,omitempty"`
@@ -76,14 +76,15 @@ type ConstraintPolicy struct {
 
 // ConstraintPolicyList contains a list of ConstraintPolicy.
 type ConstraintPolicyList struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ConstraintPolicy `json:"items"`
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
+	//nolint:exhaustruct
 	SchemeBuilder.Register(&ConstraintPolicy{}, &ConstraintPolicyList{})
 }

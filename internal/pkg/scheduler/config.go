@@ -25,7 +25,7 @@ import (
 // ConstraintPolicySchedulingArgs defines the parameters for ConstraintPolicyScheduling plugin.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ConstraintPolicySchedulingArgs struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta      `json:",inline"`
 	Debug                bool   `json:"debug,omitempty"`
 	MinDelayOnFailure    string `json:"minDelayOnFailure,omitempty"`
@@ -41,7 +41,7 @@ type ConstraintPolicySchedulingArgs struct {
 
 // DefaultConstraintPolicySchedulerConfig returns the default options for scheduler.
 func DefaultConstraintPolicySchedulerConfig() *ConstraintPolicySchedulerOptions {
-	// nolint:gomnd
+	//nolint:gomnd
 	return &ConstraintPolicySchedulerOptions{
 		Debug:                true,
 		NumRetriesOnFailure:  3,
@@ -62,7 +62,8 @@ type durationAndRef struct {
 }
 
 func parsePluginConfig(pluginConfig *ConstraintPolicySchedulingArgs,
-	defaultConfig *ConstraintPolicySchedulerOptions) *ConstraintPolicySchedulerOptions {
+	defaultConfig *ConstraintPolicySchedulerOptions,
+) *ConstraintPolicySchedulerOptions {
 	config := *defaultConfig
 
 	config.Debug = pluginConfig.Debug

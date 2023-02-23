@@ -48,7 +48,8 @@ func (p *ruleProvider) EndpointCost(
 	src *types.Reference,
 	eligibleNodes []string,
 	peerNodes []string,
-	request, limit string) ([]NodeAndCost, error) {
+	request, limit string,
+) ([]NodeAndCost, error) {
 	p.Log.V(1).Info("endpointcost", "namespace", p.Service.Namespace, "name", p.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:5309", p.Service.Name, p.Service.Namespace)
 
@@ -60,7 +61,7 @@ func (p *ruleProvider) EndpointCost(
 		return nil, fmt.Errorf("error connecting to rule provider: %w", err)
 	}
 
-	// nolint:errcheck
+	//nolint:errcheck
 	defer conn.Close()
 
 	client := ruleprovider.NewRuleProviderClient(conn)
@@ -68,6 +69,7 @@ func (p *ruleProvider) EndpointCost(
 	ctx, cancel := context.WithTimeout(context.Background(), p.CallTimeout)
 	defer cancel()
 
+	//nolint:exhaustruct
 	source := ruleprovider.Target{
 		Cluster:    src.Cluster,
 		Kind:       src.Kind,
@@ -76,10 +78,12 @@ func (p *ruleProvider) EndpointCost(
 		Namespace:  src.Namespace,
 	}
 
+	//nolint:exhaustruct
 	req := ruleprovider.EndpointCostRequest{
 		Source:        &source,
 		EligibleNodes: eligibleNodes,
 		PeerNodes:     peerNodes,
+		//nolint:exhaustruct
 		Rule: &ruleprovider.PolicyRule{
 			Name:    p.ProviderFor,
 			Request: request,

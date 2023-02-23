@@ -36,7 +36,8 @@ const (
 )
 
 // ConstraintPolicyOfferReconciler reconciles a ConstraintPolicyOffer object.
-// nolint:revive
+//
+//nolint:revive
 type ConstraintPolicyOfferReconciler struct {
 	client.Client
 	Scheme                  *runtime.Scheme
@@ -63,20 +64,21 @@ func (r *ConstraintPolicyOfferReconciler) checkAndUpdateStatus(
 		offer.Status.CompliantBindingCount = compliant
 		offer.Status.BindingSelector = labelRef + "=" + offer.Name
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return r.Client.Status().Update(ctx, offer)
 	}
 
 	return nil
 }
 
-// nolint:lll
+//nolint:lll
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicyoffers/finalizers,verbs=update
 
 // Reconcile reconciles updates to the offer resource instances.
-// nolint:funlen,gocognit,cyclop
+//
+//nolint:funlen,gocognit,cyclop,maintidx
 func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("constraintpolicyoffer",
 		req.NamespacedName)
@@ -85,6 +87,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	var offer cpv1.ConstraintPolicyOffer
 	if err := r.Client.Get(ctx, req.NamespacedName, &offer); err != nil {
 		if kerrors.IsNotFound(err) || kerrors.IsGone(err) {
+			//nolint:exhaustruct
 			if r.Client.DeleteAllOf(ctx, &cpv1.ConstraintPolicyBinding{},
 				client.InNamespace(req.NamespacedName.Namespace),
 				client.MatchingLabels(map[string]string{
@@ -92,16 +95,18 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 				})) != nil {
 				logger.V(0).Info(apiError, "error", err.Error())
 
-				// nolint:nilerr
+				//nolint:exhaustruct,nilerr
 				return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 			}
 
 			// Offer if gone, no need to retry
+			//nolint:exhaustruct
 			return ctrl.Result{}, nil
 		}
 
 		logger.V(0).Info(apiError, "error", err.Error())
 
+		//nolint:exhaustruct
 		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 	}
 
@@ -115,6 +120,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 			logger.V(0).Info(apiError, "error", err.Error())
 
+			//nolint:exhaustruct
 			return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 		}
 	}
@@ -138,7 +144,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 		}
 
 		// Add the empty target reference. This is important so that
-		// when calculating permutations we know if we have have an empty
+		// when calculating permutations we know if we have an empty
 		// target list, because an empty target list means that there
 		// are no permutations.
 		refs[targetName] = types.ReferenceList{}
@@ -148,9 +154,11 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			logger.V(0).Error(err, "selector-parse-error", lkNamespace, req.NamespacedName.Namespace,
 				lkName, req.NamespacedName.Name, "type", targetName, "selector", target.LabelSelector)
 
+			//nolint:exhaustruct
 			return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 		}
 
+		//nolint:exhaustruct
 		found := uv1.UnstructuredList{}
 		found.SetKind(target.Kind)
 		found.SetAPIVersion(target.APIVersion)
@@ -161,6 +169,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			if !kerrors.IsNotFound(err) || kerrors.IsGone(err) {
 				logger.V(0).Error(err, apiError)
 
+				//nolint:exhaustruct
 				return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 			}
 		}
@@ -190,7 +199,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 
 		targets := make(map[string]types.Reference)
 
-		// nolint:varnamelen
+		//nolint:varnamelen
 		for i := 0; i < len(keys); i++ {
 			targets[keys[i]] = types.Reference{
 				Cluster:    permutation[i].Cluster,
@@ -201,7 +210,9 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 			}
 		}
 
+		//nolint:exhaustruct
 		binding := cpv1.ConstraintPolicyBinding{
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: req.NamespacedName.Namespace,
 				Name:      bindingName,
@@ -221,6 +232,7 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 				Offer:   offer.ObjectMeta.Name,
 				Targets: targets,
 			},
+			//nolint:exhaustruct
 			Status: cpv1.ConstraintPolicyBindingStatus{
 				Compliance: "Pending",
 				Details:    []*cpv1.ConstraintPolicyBindingStatusDetail{},
@@ -265,16 +277,19 @@ func (r *ConstraintPolicyOfferReconciler) Reconcile(ctx context.Context, req ctr
 	if err := r.checkAndUpdateStatus(ctx, &offer, count, compliant); err != nil {
 		logger.V(0).Error(err, "status-update", lkName, offer.ObjectMeta.Name)
 
+		//nolint:exhaustruct
 		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 	}
 
+	//nolint:exhaustruct
 	return ctrl.Result{RequeueAfter: r.EvaluationInterval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintPolicyOfferReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
+		//nolint:exhaustruct
 		For(&cpv1.ConstraintPolicyOffer{}).
 		Complete(r)
 }

@@ -21,12 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var policies = cpv1.ConstraintPolicyList{
 	TypeMeta: metav1.TypeMeta{
 		Kind:       "ConstraintPolicy",
 		APIVersion: "v1alpha1",
 	},
+	//nolint:exhaustruct
 	ListMeta: metav1.ListMeta{},
 	Items: []cpv1.ConstraintPolicy{
 		{
@@ -34,6 +35,7 @@ var policies = cpv1.ConstraintPolicyList{
 				Kind:       "ConstraintPolicy",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "complex",
@@ -53,6 +55,7 @@ var policies = cpv1.ConstraintPolicyList{
 				Kind:       "ConstraintPolicy",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "large",
@@ -77,6 +80,7 @@ var policies = cpv1.ConstraintPolicyList{
 				Kind:       "ConstraintPolicy",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "gold-policy",

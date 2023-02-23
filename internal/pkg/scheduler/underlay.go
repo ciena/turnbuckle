@@ -38,7 +38,8 @@ type nodeOffer struct {
 
 // UnderlayController defines the methods supported by the underlay controller
 // instances.
-// nolint:lll
+//
+//nolint:lll
 type UnderlayController interface {
 	Discover(eligibleNodes []string, peerNodes []string, rules []*constraintv1alpha1.ConstraintPolicyRule) ([]*nodeOffer, error)
 	Allocate(pathID string) error
@@ -52,7 +53,7 @@ type underlayController struct {
 	DialOptions []grpc.DialOption
 }
 
-// nolint:lll
+//nolint:lll
 func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string, rules []*constraintv1alpha1.ConstraintPolicyRule) ([]*nodeOffer, error) {
 	c.Log.V(1).Info("discover", "namespace", c.Service.Namespace, "name", c.Service.Name)
 
@@ -66,7 +67,7 @@ func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string
 		return nil, fmt.Errorf("unable to connect to underlay controller: %w", err)
 	}
 
-	// nolint:errcheck
+	//nolint:errcheck
 	defer conn.Close()
 
 	client := underlay.NewUnderlayControllerClient(conn)
@@ -81,9 +82,11 @@ func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string
 
 	// unused, so just send empty
 	for i := range rules {
+		//nolint:exhaustruct
 		policyRules[i] = &underlay.PolicyRule{}
 	}
 
+	//nolint:exhaustruct
 	req := underlay.DiscoverRequest{
 		Rules:         policyRules,
 		EligibleNodes: eligibleNodes,
@@ -114,7 +117,7 @@ func (c *underlayController) Discover(eligibleNodes []string, peerNodes []string
 	return nodeOffers, nil
 }
 
-// nolint:dupl
+//nolint:dupl
 func (c *underlayController) Allocate(pathID string) error {
 	c.Log.V(1).Info("allocatepaths", "namespace", c.Service.Namespace, "name", c.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:9999", c.Service.Name, c.Service.Namespace)
@@ -127,7 +130,7 @@ func (c *underlayController) Allocate(pathID string) error {
 		return fmt.Errorf("unable to connect to underlay controller: %w", err)
 	}
 
-	// nolint:errcheck
+	//nolint:errcheck
 	defer conn.Close()
 
 	client := underlay.NewUnderlayControllerClient(conn)
@@ -135,6 +138,7 @@ func (c *underlayController) Allocate(pathID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.CallTimeout)
 	defer cancel()
 
+	//nolint:exhaustruct
 	req := underlay.AllocateRequest{Id: pathID}
 	if _, err = client.Allocate(ctx, &req); err != nil {
 		return fmt.Errorf("unable to allocate underlay: %w", err)
@@ -143,7 +147,7 @@ func (c *underlayController) Allocate(pathID string) error {
 	return nil
 }
 
-// nolint:dupl
+//nolint:dupl
 func (c *underlayController) Release(pathID string) error {
 	c.Log.V(1).Info("releasepaths", "namespace", c.Service.Namespace, "name", c.Service.Name)
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:9999", c.Service.Name, c.Service.Namespace)
@@ -156,7 +160,7 @@ func (c *underlayController) Release(pathID string) error {
 		return fmt.Errorf("unable to connect to underlay controller: %w", err)
 	}
 
-	// nolint:errcheck
+	//nolint:errcheck
 	defer conn.Close()
 
 	client := underlay.NewUnderlayControllerClient(conn)
@@ -164,6 +168,7 @@ func (c *underlayController) Release(pathID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.CallTimeout)
 	defer cancel()
 
+	//nolint:exhaustruct
 	req := underlay.ReleaseRequest{Id: pathID}
 
 	if _, err = client.Release(ctx, &req); err != nil {

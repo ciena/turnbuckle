@@ -68,9 +68,11 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	clientset kubernetes.Interface,
 	pluginFrameworkHandle framework.Handle,
 	constraintPolicyClient constraint_policy_client.ConstraintPolicyClient,
-	log logr.Logger) *ConstraintPolicyScheduler {
+	log logr.Logger,
+) *ConstraintPolicyScheduler {
 	var addPodCallback, deletePodCallback func(pod *v1.Pod)
 
+	//nolint:exhaustruct
 	constraintPolicyScheduler := &ConstraintPolicyScheduler{}
 
 	deletePodCallback = func(pod *v1.Pod) {
@@ -78,6 +80,7 @@ func NewScheduler(options ConstraintPolicySchedulerOptions,
 	}
 
 	defaultPlanner := NewPlanner(
+		//nolint:exhaustruct
 		ConstraintPolicySchedulerPlannerOptions{
 			CallTimeout:        options.CallTimeout,
 			UpdateWorkerPeriod: options.UpdateWorkerPeriod,
@@ -155,6 +158,7 @@ func (s *ConstraintPolicyScheduler) processRequeue(ctx context.Context, item int
 
 	pod, err := s.defaultPlanner.
 		GetClientset().CoreV1().Pods(data.Namespace).
+		//nolint:exhaustruct
 		Get(ctx, data.Name, metav1.GetOptions{})
 	if err != nil {
 		s.log.Error(err, "pod-requeue-pod-get-failure", "pod", data.Name)
@@ -251,7 +255,8 @@ func (s *ConstraintPolicyScheduler) podCheckScheduler(pod *v1.Pod) bool {
 func (s *ConstraintPolicyScheduler) findFit(
 	ctx context.Context,
 	pod *v1.Pod,
-	eligibleNodes []*v1.Node) (*v1.Node, error) {
+	eligibleNodes []*v1.Node,
+) (*v1.Node, error) {
 	var nodeInstance *v1.Node
 
 	var err error

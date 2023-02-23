@@ -36,7 +36,7 @@ const (
 	preFilterStateKey = "PreFilter" + Name
 )
 
-// ConstraintPolicyScheduling instance state for the the policy scheduling
+// ConstraintPolicyScheduling instance state for the policy scheduling
 // plugin.
 type ConstraintPolicyScheduling struct {
 	scheduler *ConstraintPolicyScheduler
@@ -49,13 +49,17 @@ type preFilterState struct {
 }
 
 var (
-	_ framework.PreFilterPlugin  = &ConstraintPolicyScheduling{}
-	_ framework.ScorePlugin      = &ConstraintPolicyScheduling{}
+	//nolint:exhaustruct
+	_ framework.PreFilterPlugin = &ConstraintPolicyScheduling{}
+	//nolint:exhaustruct
+	_ framework.ScorePlugin = &ConstraintPolicyScheduling{}
+	//nolint:exhaustruct
 	_ framework.PostFilterPlugin = &ConstraintPolicyScheduling{}
 )
 
 // New create a new framework plugin intance.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error,
 ) {
@@ -66,7 +70,7 @@ func New(
 	defaultConfig := DefaultConstraintPolicySchedulerConfig()
 
 	if obj != nil {
-		//nolint: forcetypeassert
+		//nolint:forcetypeassert
 		pluginConfig := obj.(*ConstraintPolicySchedulingArgs)
 		config = parsePluginConfig(pluginConfig, defaultConfig)
 	} else {
@@ -135,14 +139,16 @@ func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error
 }
 
 // Clone isn't needed for our state data.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func (s *preFilterState) Clone() framework.StateData {
 	return s
 }
 
 func (c *ConstraintPolicyScheduling) createPreFilterState(
 	ctx context.Context,
-	pod *v1.Pod) (*preFilterState, *framework.Status) {
+	pod *v1.Pod,
+) (*preFilterState, *framework.Status) {
 	allNodes, err := c.fh.SnapshotSharedLister().NodeInfos().List()
 	if err != nil {
 		return nil, framework.AsStatus(err)
@@ -181,10 +187,11 @@ func (c *ConstraintPolicyScheduling) Name() string {
 func (c *ConstraintPolicyScheduling) PreFilter(
 	parentCtx context.Context,
 	state *framework.CycleState,
-	pod *v1.Pod) *framework.Status {
+	pod *v1.Pod,
+) *framework.Status {
 	c.log.V(1).Info("prefilter", "pod", pod.Name)
 
-	//nolint: gomnd
+	//nolint:gomnd
 	ctx, cancel := context.WithTimeout(parentCtx, c.scheduler.options.CallTimeout*2)
 	assignmentState, status := c.createPreFilterState(ctx, pod)
 
@@ -207,7 +214,8 @@ func (c *ConstraintPolicyScheduling) PreFilter(
 }
 
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
 }
@@ -216,7 +224,8 @@ func (c *ConstraintPolicyScheduling) PreFilterExtensions() framework.PreFilterEx
 func (c *ConstraintPolicyScheduling) Score(
 	ctx context.Context,
 	state *framework.CycleState,
-	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	pod *v1.Pod, nodeName string,
+) (int64, *framework.Status) {
 	c.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
 	assignmentState, err := getPreFilterState(state)
@@ -234,7 +243,8 @@ func (c *ConstraintPolicyScheduling) Score(
 }
 
 // ScoreExtensions calcuates scores for the extensions.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }
@@ -242,7 +252,8 @@ func (c *ConstraintPolicyScheduling) ScoreExtensions() framework.ScoreExtensions
 // PostFilter is called when no node can be assigned to the pod.
 func (c *ConstraintPolicyScheduling) PostFilter(ctx context.Context,
 	state *framework.CycleState, pod *v1.Pod,
-	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
+	filteredNodeStatusMap framework.NodeToStatusMap,
+) (*framework.PostFilterResult, *framework.Status) {
 	c.log.V(1).Info("post-filter", "pod", pod.Name)
 
 	assignmentState, err := getPreFilterState(state)

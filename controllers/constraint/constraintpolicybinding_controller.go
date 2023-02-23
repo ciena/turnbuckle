@@ -44,7 +44,8 @@ const (
 )
 
 // ConstraintPolicyBindingReconciler reconciles a Binding object.
-// nolint:revive
+//
+//nolint:revive
 type ConstraintPolicyBindingReconciler struct {
 	client.Client
 	Scheme                  *runtime.Scheme
@@ -66,7 +67,7 @@ func detailsAreDifferent(left, right []*cpv1.ConstraintPolicyBindingStatusDetail
 		return right[i].Policy < right[j].Policy
 	})
 
-	// nolint:varnamelen
+	//nolint:varnamelen
 	for i := range left {
 		if left[i].Policy != right[i].Policy ||
 			left[i].Compliance != right[i].Compliance ||
@@ -104,7 +105,7 @@ func (r *ConstraintPolicyBindingReconciler) evaluateRule(
 		return types.ComplianceError, err.Error()
 	}
 
-	// nolint:errcheck
+	//nolint:errcheck
 	defer conn.Close()
 
 	timeout := r.RPCTimeout
@@ -117,8 +118,10 @@ func (r *ConstraintPolicyBindingReconciler) evaluateRule(
 	rctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	//nolint:exhaustruct
 	greq := ruleprovider.EvaluateRequest{
 		Targets: pb.AsPBTarget(binding.Spec.Targets),
+		//nolint:exhaustruct
 		Rule: &ruleprovider.PolicyRule{
 			Name:    rule.Name,
 			Request: rule.Request,
@@ -138,7 +141,8 @@ func (r *ConstraintPolicyBindingReconciler) checkAndUpdateStatus(
 	ctx context.Context,
 	binding *cpv1.ConstraintPolicyBinding,
 	compliance, reason string,
-	details []*cpv1.ConstraintPolicyBindingStatusDetail) error {
+	details []*cpv1.ConstraintPolicyBindingStatusDetail,
+) error {
 	// Only update status if something has changed
 	changed := false
 
@@ -159,7 +163,7 @@ func (r *ConstraintPolicyBindingReconciler) checkAndUpdateStatus(
 		changed = true
 	}
 
-	// If the compliance is not not in violation, then clear any mitigation
+	// If the compliance is not in violation, then clear any mitigation
 	// timestamp
 	if compliance != types.ComplianceViolation && !binding.Status.LastMitigatedTimestamp.IsZero() {
 		binding.Status.LastMitigatedTimestamp = metav1.Time{Time: time.Time{}}
@@ -167,21 +171,22 @@ func (r *ConstraintPolicyBindingReconciler) checkAndUpdateStatus(
 	}
 
 	if changed {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return r.Client.Status().Update(ctx, binding)
 	}
 
 	return nil
 }
 
-// nolint:lll
+//nolint:lll
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicybindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicybindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicybindings/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// nolint:gocognit,funlen,cyclop
+//
+//nolint:gocognit,funlen,cyclop
 func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("constraintpolicybinding",
 		req.NamespacedName)
@@ -194,13 +199,14 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			logger.V(1).Info("not-found", lkNamespace, req.Namespace,
 				lkName, req.Name)
 
+			//nolint:exhaustruct
 			return ctrl.Result{}, nil
 		}
 
 		// retry on api-error
 		logger.V(0).Info(apiError, "error", err.Error())
 
-		// noling:nilerr
+		//nolint:exhaustruct
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
@@ -208,7 +214,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	// initial compliance as Compliant as it is the lease severe level
 	// and thus the status will be updated if a more severe value is
 	// encountered
-	// nolint: prealloc
+	//nolint:prealloc
 	var details []*cpv1.ConstraintPolicyBindingStatusDetail
 
 	var reason string
@@ -224,13 +230,13 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			logger.V(0).Error(err, "offer-not-found", lkNamespace, req.Namespace,
 				lkName, binding.Spec.Offer)
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return ctrl.Result{}, err
 		}
 
 		logger.V(0).Error(err, apiError)
 
-		// noling:nilerr
+		//nolint:exhaustruct
 		return ctrl.Result{RequeueAfter: r.EvaluationErrorInterval}, nil
 	}
 
@@ -243,6 +249,7 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			logger.V(0).Error(err, "policy-lookup-failed",
 				lkNamespace, req.Namespace, lkName, pname)
 
+			//nolint:exhaustruct
 			details = append(details, &cpv1.ConstraintPolicyBindingStatusDetail{
 				Policy:     string(pname),
 				Compliance: types.ComplianceError,
@@ -252,8 +259,9 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 			continue
 		}
 
-		// If we have a policy, then set the the summary value to compliant,
+		// If we have a policy, then set the summary value to compliant,
 		// to be overridden if a more severe evaluation is seen.
+		//nolint:exhaustruct
 		detail := cpv1.ConstraintPolicyBindingStatusDetail{
 			Policy:     string(pname),
 			Compliance: types.ComplianceCompliant,
@@ -263,12 +271,13 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 		for _, rule := range policy.Spec.Rules {
 			logger.V(1).Info("rule-evaluation", "policy", pname, "rule", rule.Name)
 
+			//nolint:exhaustruct
 			ruleDetail := cpv1.ConstraintPolicyBindingStatusRuleDetail{
 				Rule: rule.Name,
 			}
 
 			var svcs corev1.ServiceList
-			// nolint:gocritic
+			//nolint:gocritic
 			if err := r.Client.List(ctx, &svcs,
 				client.InNamespace(req.Namespace),
 				client.MatchingLabels(map[string]string{fmt.Sprintf(providerLabel, rule.Name): "enabled"})); err != nil {
@@ -337,14 +346,16 @@ func (r *ConstraintPolicyBindingReconciler) Reconcile(ctx context.Context, req c
 	logger.V(1).Info("requeue binding evaluation", lkNamespace, binding.Namespace,
 		lkName, binding.Name, "period", period.String())
 
+	//nolint:exhaustruct
 	return ctrl.Result{RequeueAfter: period}, r.checkAndUpdateStatus(ctx,
 		&binding, compliance, reason, details)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintPolicyBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
+		//nolint:exhaustruct
 		For(&cpv1.ConstraintPolicyBinding{}).
 		Complete(r)
 }

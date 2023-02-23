@@ -29,13 +29,14 @@ import (
 )
 
 // ConstraintPolicyReconciler reconciles a Policy object.
-// nolint:revive
+//
+//nolint:revive
 type ConstraintPolicyReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// nolint:lll
+//nolint:lll
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=constraint.ciena.com,resources=constraintpolicies/finalizers,verbs=update
@@ -53,6 +54,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logger.V(1).Info("not-found", lkNamespace, req.NamespacedName.Namespace,
 				lkName, req.NamespacedName.Name)
 
+			//nolint:exhaustruct
 			return ctrl.Result{}, nil
 		}
 
@@ -62,7 +64,7 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			lkNamespace, req.NamespacedName.Namespace,
 			lkName, req.NamespacedName.Name)
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return ctrl.Result{}, err
 	}
 
@@ -81,18 +83,20 @@ func (r *ConstraintPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err := r.Client.Status().Update(ctx, &policy); err != nil {
 			logger.V(1).Info("status-update-error", "error", err.Error())
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return ctrl.Result{}, err
 		}
 	}
 
+	//nolint:exhaustruct
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
+		//nolint:exhaustruct
 		For(&cpv1.ConstraintPolicy{}).
 		Complete(r)
 }

@@ -21,12 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var offers = cpv1.ConstraintPolicyOfferList{
 	TypeMeta: metav1.TypeMeta{
 		Kind:       "ConstraintPolicyOffer",
 		APIVersion: "v1alpha1",
 	},
+	//nolint:exhaustruct
 	ListMeta: metav1.ListMeta{},
 	Items: []*cpv1.ConstraintPolicyOffer{
 		{
@@ -34,6 +35,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 				Kind:       "ConstraintPolicyOffer",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "gold-offer",
@@ -44,6 +46,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 						Name:       "source",
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-client",
@@ -54,6 +57,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 						Name:       "destination",
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-server",
@@ -74,6 +78,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 				Kind:       "ConstraintPolicyOffer",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "large-offer",
@@ -83,6 +88,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 					{
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-server",
@@ -103,6 +109,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 				Kind:       "ConstraintPolicyOffer",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "complex-offer",
@@ -113,6 +120,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 						Name:       "one",
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-client",
@@ -123,6 +131,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 						Name:       "two",
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-server",
@@ -133,6 +142,7 @@ var offers = cpv1.ConstraintPolicyOfferList{
 						Name:       "three",
 						APIVersion: "v1",
 						Kind:       "Pod",
+						//nolint:exhaustruct
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"app": "hello-monitor",

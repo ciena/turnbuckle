@@ -23,7 +23,6 @@ import (
 
 // ConstraintPolicyBindingSpec defines the desired state of ConstraintPolicyBinding.
 type ConstraintPolicyBindingSpec struct {
-
 	// Targets the list of targets for the binding
 	//+kubernetes:validate:Required
 	Targets map[string]types.Reference `json:"targets"`
@@ -71,7 +70,6 @@ type ConstraintPolicyBindingStatusDetail struct {
 
 // ConstraintPolicyBindingStatus defines the observed state of ConstraintPolicyBinding.
 type ConstraintPolicyBindingStatus struct {
-
 	//+kubebuilder:validate:Required
 	//+kubebuilder:validation:Enum=Error;Pending;Compliant;Limit;Violation
 	Compliance string `json:"compliance"`
@@ -107,9 +105,9 @@ type ConstraintPolicyBindingStatus struct {
 // ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
 // +genclient.
 type ConstraintPolicyBinding struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	//+kubernetes:validation:Required
@@ -121,14 +119,15 @@ type ConstraintPolicyBinding struct {
 
 // ConstraintPolicyBindingList contains a list of ConstraintPolicyBinding.
 type ConstraintPolicyBindingList struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []*ConstraintPolicyBinding `json:"items"`
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
+	//nolint:exhaustruct
 	SchemeBuilder.Register(&ConstraintPolicyBinding{}, &ConstraintPolicyBindingList{})
 }

@@ -29,7 +29,7 @@ const (
 	ComplianceError     = "Error"
 )
 
-// nolint:gochecknoglobals, gomnd
+//nolint:gochecknoglobals, gomnd
 var complianceSeverityMap = map[ComplianceLevel]int{
 	ComplianceNone:      0,
 	CompliancePending:   0,
@@ -47,7 +47,7 @@ func (cl ComplianceLevel) String() string {
 // CompareComplianceSeverity compares two compliance level and return an
 // integer value where if the returned value is < 0 then the first
 // parameter has a higher severity level, > 0 then the second parameter
-// has a higher severity level, or 0 if the the values are equal.
+// has a higher severity level, or 0 if the values are equal.
 func CompareComplianceSeverity(left, right string) int {
 	leftVal, okLeft := complianceSeverityMap[ComplianceLevel(left)]
 	rightVal, okRight := complianceSeverityMap[ComplianceLevel(right)]

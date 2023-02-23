@@ -45,6 +45,7 @@ func TestParseReference(t *testing.T) {
 		{
 			"kind not capitalized",
 			"cluster:namespace:api:kind:name",
+			//nolint:exhaustruct
 			Reference{},
 			ErrParseReference,
 		},
@@ -69,12 +70,14 @@ func TestParseReference(t *testing.T) {
 		{
 			"empty string",
 			"",
+			//nolint:exhaustruct
 			Reference{},
 			ErrParseReference,
 		},
 		{
 			"no cluster specified",
 			"ns:my.co/v1:Kind:name",
+			//nolint:exhaustruct
 			Reference{
 				Namespace: "ns", APIVersion: "my.co/v1",
 				Kind: "Kind", Name: "name",
@@ -84,6 +87,7 @@ func TestParseReference(t *testing.T) {
 		{
 			"no cluster or namespace",
 			"my.co/v1:Kind:name",
+			//nolint:exhaustruct
 			Reference{
 				APIVersion: "my.co/v1",
 				Kind:       "Kind", Name: "name",
@@ -111,18 +115,21 @@ func TestParseReference(t *testing.T) {
 		{
 			"empty cluster, namespace, and API version values",
 			":::Kind:name",
+			//nolint:exhaustruct
 			Reference{},
 			ErrParseReference,
 		},
 		{
 			"no name specified",
 			"cluster:ns:my.co/v1:Kind",
+			//nolint:exhaustruct
 			Reference{},
 			ErrParseReference,
 		},
 		{
 			"empty name specified",
 			"cluster:ns:my.co/v1:Kind:",
+			//nolint:exhaustruct
 			Reference{},
 			ErrParseReference,
 		},
@@ -149,7 +156,7 @@ func TestParseReference(t *testing.T) {
 }
 
 func toUnstructured(namespace, apiVersion, kind, name string) uv1.Unstructured {
-	// nolint:varnamelen
+	//nolint:varnamelen,exhaustruct
 	u := uv1.Unstructured{}
 
 	if len(namespace+apiVersion+kind+name) == 0 {
@@ -414,7 +421,7 @@ func TestPermutations(t *testing.T) {
 	for _, test := range tests {
 		rm := ReferenceListMap{}
 
-		// nolint:varnamelen
+		//nolint:varnamelen
 		for k, v := range test.listmap {
 			rl := ReferenceList{}
 

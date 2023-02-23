@@ -26,7 +26,6 @@ type Policy string
 
 // ConstraintPolicyOfferTarget identifies a target of a policy offer.
 type ConstraintPolicyOfferTarget struct {
-
 	// Name defines the optional name for the target specification/
 	//+optional
 	Name string `json:"name"`
@@ -57,7 +56,6 @@ type ConstraintPolicyOfferTarget struct {
 
 // ConstraintPolicyOfferSpec defines the desired state of ConstraintPolicyOffer.
 type ConstraintPolicyOfferSpec struct {
-
 	// Targets list of targets to be included in the offer.
 	//+kubebuilder:validation:Required
 	Targets []*ConstraintPolicyOfferTarget `json:"targets"`
@@ -87,7 +85,6 @@ type ConstraintPolicyOfferSpec struct {
 
 // ConstraintPolicyOfferStatus defines the observed state of ConstraintPolicyOffer.
 type ConstraintPolicyOfferStatus struct {
-
 	// BindingCount summary of how many bindings were created from this offer.
 	BindingCount int `json:"bindingCount"`
 
@@ -118,9 +115,9 @@ type ConstraintPolicyOfferStatus struct {
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
 // +genclient.
 type ConstraintPolicyOffer struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   ConstraintPolicyOfferSpec   `json:"spec,omitempty"`
@@ -131,14 +128,15 @@ type ConstraintPolicyOffer struct {
 
 // ConstraintPolicyOfferList contains a list of ConstraintPolicyOffer.
 type ConstraintPolicyOfferList struct {
-	// nolint:tagliatelle
+	
 	metav1.TypeMeta `json:",inline"`
-	// nolint:tagliatelle
+	//nolint:tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []*ConstraintPolicyOffer `json:"items"`
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
+	//nolint:exhaustruct
 	SchemeBuilder.Register(&ConstraintPolicyOffer{}, &ConstraintPolicyOfferList{})
 }

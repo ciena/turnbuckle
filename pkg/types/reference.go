@@ -95,7 +95,7 @@ func (m ReferenceListMap) Permutations() ([]string, []ReferenceList) {
 	// Define a closer (nested function) that is used to increment
 	// the counters that represent the iterators through the permutations
 	inc := func(list []ReferenceList, refIdxs []int) {
-		// nolint:varnamelen
+		//nolint:varnamelen
 		for i := len(refIdxs) - 1; i >= 0; i-- {
 			if i == 0 || refIdxs[i] < len(list[i])-1 {
 				refIdxs[i]++
@@ -175,7 +175,8 @@ func (t *Reference) String() string {
 }
 
 // the regex expression used to parse a string representation of a Reference.
-// nolint:lll
+//
+//nolint:lll
 var referenceRE = regexp.MustCompile(`^((([a-zA-Z_][a-zA-Z0-9-_]*)?:)?([a-zA-Z_][a-zA-Z0-9-_]*)?:)?([a-zA-Z_][a-zA-Z0-9-_\/\.]*):([A-Z][a-zA-Z0-9]*):([a-zA-Z_][a-zA-Z0-9-_]*)$`)
 
 // Indexes into the regexp results to get the various parts.
@@ -214,6 +215,7 @@ func ParseReference(in string) (*Reference, error) {
 // NewReferenceFromUnstructured creates and returns a new Reference instance
 // from the given unstructured resource information.
 func NewReferenceFromUnstructured(in uv1.Unstructured) *Reference {
+	//nolint:exhaustruct
 	out := Reference{}
 	if val, ok := in.Object["apiVersion"].(string); ok {
 		out.APIVersion = val

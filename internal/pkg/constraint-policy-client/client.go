@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	scheme         = runtime.NewScheme()
 	codecs         = serializer.NewCodecFactory(scheme)
@@ -39,7 +39,8 @@ var (
 
 // ConstraintPolicyClient defines methods supported by the constraint policy
 // client.
-// nolint:lll
+//
+//nolint:lll
 type ConstraintPolicyClient interface {
 	GetConstraintPolicyBinding(ctx context.Context, namespace, name string, opts v1.GetOptions) (*constraintv1alpha1.ConstraintPolicyBinding, error)
 	GetConstraintPolicyOffer(ctx context.Context, namespace, name string, opts v1.GetOptions) (*constraintv1alpha1.ConstraintPolicyOffer, error)
@@ -54,14 +55,15 @@ type constraintPolicyClient struct {
 	log    logr.Logger
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
 	v1.AddToGroupVersion(scheme, constraintv1alpha1.GroupVersion)
 	utilruntime.Must(constraintv1alpha1.AddToScheme(scheme))
 }
 
 // New creates and returns a new constraint policy client instance.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func New(config *rest.Config, log logr.Logger) (ConstraintPolicyClient, error) {
 	client, err := newConstraintClientForConfig(config)
 	if err != nil {
@@ -94,11 +96,12 @@ func setConfigDefaults(config *rest.Config) {
 	}
 }
 
-// nolint:lll
-func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context, namespace, name string, opts v1.GetOptions) (result *constraintv1alpha1.ConstraintPolicyBinding, err error) {
-	result = &constraintv1alpha1.ConstraintPolicyBinding{}
+//nolint:lll
+func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context, namespace, name string, opts v1.GetOptions) (*constraintv1alpha1.ConstraintPolicyBinding, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicyBinding{}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicybindings").
 		Name(name).
@@ -106,14 +109,16 @@ func (c *constraintPolicyClient) GetConstraintPolicyBinding(ctx context.Context,
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }
 
-// nolint:lll
-func (c *constraintPolicyClient) GetConstraintPolicyOffer(ctx context.Context, namespace, name string, opts v1.GetOptions) (result *constraintv1alpha1.ConstraintPolicyOffer, err error) {
-	result = &constraintv1alpha1.ConstraintPolicyOffer{}
+//nolint:lll
+func (c *constraintPolicyClient) GetConstraintPolicyOffer(ctx context.Context, namespace, name string, opts v1.GetOptions) (*constraintv1alpha1.ConstraintPolicyOffer, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicyOffer{}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicyoffers").
 		Name(name).
@@ -121,14 +126,16 @@ func (c *constraintPolicyClient) GetConstraintPolicyOffer(ctx context.Context, n
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }
 
-// nolint:lll
-func (c *constraintPolicyClient) GetConstraintPolicy(ctx context.Context, namespace, name string, opts v1.GetOptions) (result *constraintv1alpha1.ConstraintPolicy, err error) {
-	result = &constraintv1alpha1.ConstraintPolicy{}
+//nolint:lll
+func (c *constraintPolicyClient) GetConstraintPolicy(ctx context.Context, namespace, name string, opts v1.GetOptions) (*constraintv1alpha1.ConstraintPolicy, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicy{}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicies").
 		Name(name).
@@ -136,12 +143,14 @@ func (c *constraintPolicyClient) GetConstraintPolicy(ctx context.Context, namesp
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }
 
-// nolint:dupl,gocritic,lll
-func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyBindingList, err error) {
-	result = &constraintv1alpha1.ConstraintPolicyBindingList{}
+//nolint:dupl,gocritic,lll
+func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Context, namespace string, opts v1.ListOptions) (*constraintv1alpha1.ConstraintPolicyBindingList, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicyBindingList{}
 
 	var timeout time.Duration
 
@@ -149,7 +158,7 @@ func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Contex
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicybindings").
 		VersionedParams(&opts, parameterCodec).
@@ -157,12 +166,14 @@ func (c *constraintPolicyClient) ListConstraintPolicyBindings(ctx context.Contex
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }
 
-// nolint:dupl,gocritic,lll
-func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyOfferList, err error) {
-	result = &constraintv1alpha1.ConstraintPolicyOfferList{}
+//nolint:dupl,gocritic,lll
+func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context, namespace string, opts v1.ListOptions) (*constraintv1alpha1.ConstraintPolicyOfferList, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicyOfferList{}
 
 	var timeout time.Duration
 
@@ -170,7 +181,7 @@ func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context,
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicyoffers").
 		VersionedParams(&opts, parameterCodec).
@@ -178,12 +189,14 @@ func (c *constraintPolicyClient) ListConstraintPolicyOffers(ctx context.Context,
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }
 
-// nolint:dupl,gocritic,lll
-func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, namespace string, opts v1.ListOptions) (result *constraintv1alpha1.ConstraintPolicyList, err error) {
-	result = &constraintv1alpha1.ConstraintPolicyList{}
+//nolint:dupl,gocritic,lll
+func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, namespace string, opts v1.ListOptions) (*constraintv1alpha1.ConstraintPolicyList, error) {
+	//nolint:exhaustruct
+	result := &constraintv1alpha1.ConstraintPolicyList{}
 
 	var timeout time.Duration
 
@@ -191,7 +204,7 @@ func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, nam
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
 
-	err = c.client.Get().
+	err := c.client.Get().
 		Namespace(namespace).
 		Resource("constraintpolicies").
 		VersionedParams(&opts, parameterCodec).
@@ -199,5 +212,6 @@ func (c *constraintPolicyClient) ListConstraintPolicies(ctx context.Context, nam
 		Do(ctx).
 		Into(result)
 
-	return
+	//nolint:wrapcheck
+	return result, err
 }

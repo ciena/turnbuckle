@@ -41,7 +41,9 @@ func TestRemoveInvalidBinding(t *testing.T) {
 
 	// Create a pod that will not map to the existing
 	// policy bindings
+	//nolint:exhaustruct
 	pod := corev1.Pod{
+		//nolint:exhaustruct
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "sample",
@@ -82,6 +84,7 @@ func TestRemoveInvalidBinding(t *testing.T) {
 	assert.Equal(t, 1, len(before.Items), "wrong number of pre-existing bindings")
 
 	// create an instance of policy offer reconciler
+	//nolint:exhaustruct
 	cpo := &controllers.ConstraintPolicyOfferReconciler{
 		Client: con,
 		Scheme: scheme,
@@ -114,9 +117,11 @@ func TestBindingCreated(t *testing.T) {
 			Kind:       "Pod",
 			APIVersion: "v1",
 		},
+		//nolint:exhaustruct
 		ListMeta: metav1.ListMeta{},
 		Items: []corev1.Pod{
 			{
+				//nolint:exhaustruct
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "server",
@@ -126,6 +131,7 @@ func TestBindingCreated(t *testing.T) {
 				},
 			},
 			{
+				//nolint:exhaustruct
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "client",
@@ -170,6 +176,7 @@ func TestBindingCreated(t *testing.T) {
 	assert.Equal(t, 0, len(before.Items), "wrong number of pre-existing bindings")
 
 	// create an instance of policy offer reconciler
+	//nolint:exhaustruct
 	cpo := &controllers.ConstraintPolicyOfferReconciler{
 		Client: con,
 		Scheme: scheme,
@@ -227,7 +234,9 @@ func TestOfferNotFound(t *testing.T) {
 
 	// Create a pod that will not map to the existing
 	// policy bindings
+	//nolint:exhaustruct
 	pod := corev1.Pod{
+		//nolint:exhaustruct
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "sample",
@@ -268,6 +277,7 @@ func TestOfferNotFound(t *testing.T) {
 	assert.Equal(t, 1, len(before.Items), "wrong number of pre-existing bindings")
 
 	// create an instance of policy offer reconciler
+	//nolint:exhaustruct
 	cpo := &controllers.ConstraintPolicyOfferReconciler{
 		Client: con,
 		Scheme: scheme,

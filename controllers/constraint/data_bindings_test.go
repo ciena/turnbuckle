@@ -22,12 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var bindings = cpv1.ConstraintPolicyBindingList{
 	TypeMeta: metav1.TypeMeta{
 		Kind:       "ConstraintPolicyBinding",
 		APIVersion: "v1alpha1",
 	},
+	//nolint:exhaustruct
 	ListMeta: metav1.ListMeta{},
 	Items: []*cpv1.ConstraintPolicyBinding{
 		{
@@ -35,6 +36,7 @@ var bindings = cpv1.ConstraintPolicyBindingList{
 				Kind:       "ConstraintPolicyBinding",
 				APIVersion: "v1alpha1",
 			},
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 				Name:      "gold-offer-binding",
@@ -42,6 +44,7 @@ var bindings = cpv1.ConstraintPolicyBindingList{
 					"constraint.ciena.io/constraintPolicyOffer": "gold-offer",
 				},
 			},
+			//nolint:exhaustruct
 			Spec: cpv1.ConstraintPolicyBindingSpec{
 				Targets: map[string]types.Reference{
 					"source": {

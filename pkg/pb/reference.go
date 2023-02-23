@@ -26,8 +26,9 @@ import (
 func AsPBTarget(from map[string]types.Reference) map[string]*ruleprovider.Target {
 	to := make(map[string]*ruleprovider.Target)
 
-	// nolint: gocritic,varnamelen
+	//nolint:gocritic,varnamelen
 	for k, v := range from {
+		//nolint:exhaustruct
 		to[k] = &ruleprovider.Target{
 			Cluster:    v.Cluster,
 			Namespace:  v.Namespace,
