@@ -21,7 +21,7 @@ import (
 )
 
 // Policy used to type a policy name so that if can be validated with a pattern.
-//+kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 type Policy string
 
 // ConstraintPolicyOfferTarget identifies a target of a policy offer.
@@ -116,7 +116,7 @@ type ConstraintPolicyOfferStatus struct {
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 
 // ConstraintPolicyOffer is the Schema for the constraintpolicyoffers API.
-//+genclient.
+// +genclient.
 type ConstraintPolicyOffer struct {
 	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`

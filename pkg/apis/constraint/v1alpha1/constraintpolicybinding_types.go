@@ -105,7 +105,7 @@ type ConstraintPolicyBindingStatus struct {
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 
 // ConstraintPolicyBinding is the Schema for the constraintpolicybindings API.
-//+genclient.
+// +genclient.
 type ConstraintPolicyBinding struct {
 	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
